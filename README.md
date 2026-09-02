@@ -300,3 +300,9 @@ KubeManager **installeert en onderhoudt** de componenten (Helm, cluster, back-up
 certificaten). CommonControl **beheert de inhoud** ervan (zaaktypen, abonnementen,
 objecttypen, partijen). Ze overlappen bewust niet, en CommonControl heeft
 KubeManager niet nodig: de import is een gemak, geen afhankelijkheid.
+
+---
+
+## Licentie
+
+Licensed under the EUPL. Zie [LICENSE](LICENSE) voor de volledige tekst.
