@@ -13,7 +13,7 @@ hostingpartij: alleen het adres en de inloggegevens tellen.
 ## Wat het beheert
 
 De negen Maykin/ZGW-componenten uit de CommonGround-stack. OpenBeheer zit er
-bewust niet in: CommonControl is de vervanger daarvan, niet de aanvulling erop.
+niet in.
 
 | Component | API('s) | Authenticatie | Beheerbaar |
 |---|---|---|---|
