@@ -1,5 +1,9 @@
 # CommonControl
 
+> ⚠ **Eerste beta-versie.** CommonControl is nog niet tegen een echte, live
+> installatie van elk component getest. Gebruik het vooralsnog met dat in het
+> achterhoofd, en meld gerust een issue als iets niet klopt.
+
 Webgebaseerde beheerinterface voor de CommonGround-componenten. Gebouwd door
 **Madaro Services**.
 
