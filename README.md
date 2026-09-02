@@ -252,23 +252,6 @@ applicatie). Dat blok kan weg zodra de tests op een ondersteunde versie draaien.
 
 ---
 
-## Wat nog niet tegen een echt cluster is getest
-
-Alles hierboven is lokaal geverifieerd: 70 tests groen, `manage.py check` schoon,
-de manifesten door een YAML-parser, `app.js` door `node --check`. Wat een echte
-omgeving nog moet uitwijzen:
-
-* de veldenlijsten per resource tegen een draaiende installatie — de paden en
-  authenticatie zijn geverifieerd, maar of elk veld exact zo heet als hier
-  beschreven blijkt pas bij het eerste echte aanmaken. De JSON-modus vangt
-  afwijkingen op zonder dat er iets onbereikbaar wordt;
-* de sessie-login bij Open Archiefbeheer (CSRF-afhandeling verschilt per opzet);
-* het token-voorvoegsel van Open Klant — de test bepaalt dat zelf, maar het is
-  nog niet tegen een echte instantie waargenomen;
-* een volledige OIDC-ronde met een echte identity provider.
-
----
-
 ## Functioneel versus technisch beheer
 
 CommonControl **beheert de inhoud** van de componenten (zaaktypen, abonnementen,
