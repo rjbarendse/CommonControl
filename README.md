@@ -1,7 +1,7 @@
 # CommonControl
 
-> ⚠ **Eerste beta-versie.** CommonControl is nog niet tegen een echte, live
-> installatie van elk component getest. Gebruik het vooralsnog met dat in het
+> ⚠ **Eerste beta-versie.** CommonControl is nog niet tegen een productie omgeving 
+> van elk component getest. Gebruik het vooralsnog met dat in het
 > achterhoofd, en meld gerust een issue als iets niet klopt.
 
 Webgebaseerde beheerinterface voor de CommonGround-componenten. Gebouwd door
@@ -16,8 +16,7 @@ hostingpartij: alleen het adres en de inloggegevens tellen.
 
 ## Wat het beheert
 
-De negen Maykin/ZGW-componenten uit de CommonGround-stack. OpenBeheer zit er
-niet in.
+Negen ZGW-componenten uit de CommonGround-stack.
 
 | Component | API('s) | Authenticatie | Beheerbaar |
 |---|---|---|---|
@@ -31,17 +30,12 @@ niet in.
 | **Open Inwoner** | `/api` | `Token` | PDC: categorieën, producten |
 | **Open Archiefbeheer** | `/api/v1` | sessie-login | vernietigingslijsten, regels, beoordelingen, gebruikers, archiefconfiguratie (lezen) |
 
-Deze paden en authenticatievormen zijn **geverifieerd**, niet aangenomen: tegen
-de OpenAPI-specificaties van de upstream-projecten en tegen de `api_root`-waarden
-die deze componenten in de praktijk daadwerkelijk gebruiken.
-
 ### Eerlijke beperkingen
 
-Twee componenten bieden zelf minder aan dan de rest. Dat is geen keuze van CG
-Control, en het wordt in de interface ook zo getoond:
+Twee componenten bieden zelf minder aan dan de rest. Dat is geen keuze van CommonControl, en het wordt in de interface ook zo getoond:
 
 * **Open Inwoner** heeft maar een klein deel van zijn beheer als API: de
-  producten- en dienstencatalogus. Gebruikersbeheer en portaalinhoud blijven in
+  producten- en dienstencatalogus. Portaalinhoud blijven in
   de eigen beheeromgeving.
 * **Open Archiefbeheer** kent geen machine-credentials; zijn API is voor zijn
   eigen webinterface en werkt met een sessie-login. CommonControl logt daarom in
@@ -73,7 +67,7 @@ commoncontrol/
     │   │   └── views.py        één generieke set views voor álle resources
     │   ├── verbindingen/
     │   │   ├── models.py       omgevingen en verbindingen (geheimen versleuteld)
-    │   │   └── client.py       HTTP-client, ZGW-JWT, foutvertaling
+    │   │   └── client.py       HTTPS-client, ZGW-JWT, foutvertaling
     │   ├── toegang/            inloggen, TOTP-MFA, SSO, rechten per component
     │   └── auditlog/           wie deed wat, wanneer, met welk resultaat
     ├── templates/              inlog- en MFA-schermen
@@ -85,12 +79,12 @@ commoncontrol/
 
 `src/commoncontrol/beheer/registry.py` beschrijft elk component en elke resource één
 keer: pad, velden, veldtypen, filters, welke bewerkingen mogen. Zowel de API-laag
-als de interface leiden daar álles uit af — er is geen enkele component-specifieke
+als de interface leiden daar álles uit af, er is geen enkele component-specifieke
 view of pagina.
 
 Eén registry per component, om dezelfde reden als bij vergelijkbare
 CommonGround-tooling: negen componenten × 56 resources handmatig uitschrijven
-zou gegarandeerd gaan schelen zodra er iets wijzigt.
+zou gegarandeerd gaan scheeflopen zodra er iets wijzigt.
 
 **Een resource toevoegen = één descriptor erbij.** Er verschijnt dan vanzelf een
 menu-item, een lijst met kolommen en filters, een formulier met validatie, en
@@ -112,7 +106,7 @@ gangbaar veld nooit te wachten op een aanpassing in de code.
   authenticator-app gevraagd. Dat is niet over te slaan: een middleware bewaakt
   élk pad, dus een nieuwe pagina kan niet per ongeluk buiten de controle vallen.
 * **SSO via OpenID Connect** (Entra ID, Keycloak, of een andere provider). De
-  tweede factor is dan de verantwoordelijkheid van de provider. In te stellen en
+  MFA is dan de verantwoordelijkheid van de provider. In te stellen en
   te testen vanuit de applicatie zelf, onder *Instellingen → Single Sign On*.
 
 **Rechten** gelden per component en zijn *alleen lezen* of *lezen en wijzigen*.
@@ -162,7 +156,7 @@ credentials niet.
 > aan in de beheeromgeving van dat component (onder *Auth Token → Tokens*). De
 > interface wijst je daar naartoe.
 
-**De verbindingstest gokt niet.** De Maykin-componenten gebruiken in de praktijk
+**De verbindingstest gokt niet.** De componenten gebruiken in de praktijk
 `Authorization: Token <sleutel>`, terwijl de gegenereerde OpenAPI van Open Klant
 een bearer-schema beschrijft. In plaats van te kiezen welke bron gelijk heeft,
 probeert de test beide en slaat op wat werkelijk werkt.
@@ -232,7 +226,7 @@ python manage.py test tests --settings=commoncontrol.test_settings
 * het ZGW-JWT — inclusief de `client_identifier` in de **header**, waar OpenZaak
   anders een nietszeggende 403 op geeft;
 * rechten: sterkste van persoonlijk en groep, en geen toegang zonder recht;
-* de toegangspoort: zonder tweede factor geen API en geen interface, een
+* de toegangspoort: zonder MFA geen API en geen interface, een
   pogingenlimiet, uitloggen alleen via POST, en `?next=` alleen binnen de app;
 * padopbouw: een identificatie met `../` erin kan het pad niet veranderen;
 * de doorgeefluik-route weigert een URL buiten het component;
@@ -240,19 +234,10 @@ python manage.py test tests --settings=commoncontrol.test_settings
   gevallen zonder token;
 * de integriteit van de registry zelf.
 
-> Die laatste categorie bewees zichzelf meteen: de test op titelvelden vond dat
-> Open Klant's organisatie-resource naar een veld `naam` wees dat de
-> Contactgegevens-API niet heeft (het heet `handelsnaam`).
-
 `manage.py check --deploy` laat bewust twee waarschuwingen staan:
 `SECURE_HSTS_INCLUDE_SUBDOMAINS` en `SECURE_HSTS_PRELOAD`. CommonControl draait op
 een subdomein van de gemeente en mag geen beleid opleggen aan het hele domein —
 dat is een beslissing van de domeineigenaar, niet van deze applicatie.
-
-**Python-versie**: Django 5.1 ondersteunt tot en met Python 3.13; de Dockerfile
-pint 3.12. Draai je de tests op 3.14, dan schakelt `src/tests/__init__.py` een
-kleine shim in voor een onverenigbaarheid in Django's *testclient* (niet in de
-applicatie). Dat blok kan weg zodra de tests op een ondersteunde versie draaien.
 
 ---
 
