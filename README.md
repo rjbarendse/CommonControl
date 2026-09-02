@@ -177,31 +177,6 @@ beheerder de handeling deed — CommonControl zet de ingelogde gebruiker in het
 
 ## Draaien
 
-### Via de Madaro-uitrolknop (aanbevolen bij een Madaro-cluster)
-
-**Apps bouwen &amp; uitrollen → CommonControl → "Installeren & uitrollen".** Vul een
-hostnaam in (en optioneel een Let's Encrypt-adres en de gebruikersnaam van de
-eerste beheerder); dat rolt dan in één keer uit:
-
-* namespace, PostgreSQL met eigen PVC, en de app-deployment;
-* een `commoncontrol-secret` met een gegenereerde `SECRET_KEY`, `ENCRYPTION_KEY`,
-  databasewachtwoord en het eerste beheerdersaccount;
-* de Traefik-IngressRoute plus een Let's Encrypt-certificaat;
-* het image, gebouwd op de server vanaf deze bronmap.
-
-Het beheerderswachtwoord wordt één keer getoond en is daarna op te vragen met
-"🔑 Toon beheerdersaccount". Verwijderen kan via **Madaro → Nuke → Nuke Madaro →
-CommonControl**.
-
-> ⚠ Een herinstallatie roteert het bestaande secret **niet**. Dat is met opzet:
-> `ENCRYPTION_KEY` is de sleutel waarmee de opgeslagen API-credentials van de
-> componenten versleuteld zijn. Wie die vervangt, maakt ze onleesbaar en moet ze
-> allemaal opnieuw invoeren.
-
-De installer is hierbij alleen de uitrolknop. CommonControl praat daarna
-uitsluitend met de componenten via hun eigen API's en heeft die installer niet
-nodig — ook niet als de componenten op een ander platform draaien.
-
 ### Lokaal
 
 ```bash
