@@ -1,7 +1,7 @@
 # CommonControl
 
-Webgebaseerde beheerinterface voor de CommonGround-componenten, in de huisstijl
-van KubeManager. Gebouwd door **Madaro Services**.
+Webgebaseerde beheerinterface voor de CommonGround-componenten. Gebouwd door
+**Madaro Services**.
 
 CommonControl praat **uitsluitend via de publieke API's** van de componenten. Het
 weet niets van Kubernetes, Helm of SSH. Daardoor maakt het niet uit waar de
@@ -12,7 +12,7 @@ hostingpartij: alleen het adres en de inloggegevens tellen.
 
 ## Wat het beheert
 
-De negen Maykin/ZGW-componenten uit de KubeManager-wizard. OpenBeheer zit er
+De negen Maykin/ZGW-componenten uit de CommonGround-stack. OpenBeheer zit er
 bewust niet in: CommonControl is de vervanger daarvan, niet de aanvulling erop.
 
 | Component | API('s) | Authenticatie | Beheerbaar |
@@ -29,7 +29,7 @@ bewust niet in: CommonControl is de vervanger daarvan, niet de aanvulling erop.
 
 Deze paden en authenticatievormen zijn **geverifieerd**, niet aangenomen: tegen
 de OpenAPI-specificaties van de upstream-projecten en tegen de `api_root`-waarden
-waarmee KubeManager deze componenten in productie aan elkaar knoopt.
+die deze componenten in de praktijk daadwerkelijk gebruiken.
 
 ### Eerlijke beperkingen
 
@@ -84,9 +84,9 @@ keer: pad, velden, veldtypen, filters, welke bewerkingen mogen. Zowel de API-laa
 als de interface leiden daar álles uit af — er is geen enkele component-specifieke
 view of pagina.
 
-Dezelfde filosofie als `cg-components.js` in KubeManager, en om dezelfde reden:
-negen componenten × 56 resources handmatig uitschrijven zou gegarandeerd gaan
-schelen zodra er iets wijzigt.
+Eén registry per component, om dezelfde reden als bij vergelijkbare
+CommonGround-tooling: negen componenten × 56 resources handmatig uitschrijven
+zou gegarandeerd gaan schelen zodra er iets wijzigt.
 
 **Een resource toevoegen = één descriptor erbij.** Er verschijnt dan vanzelf een
 menu-item, een lijst met kolommen en filters, een formulier met validatie, en
@@ -128,8 +128,7 @@ beheerder alles.
 
 **Geheimen** (API-secrets, tokens, TOTP-sleutels, het OIDC-client-secret) staan
 versleuteld in de database (Fernet) en worden nooit naar de browser
-teruggestuurd. Een veld leeg laten betekent overal "ongewijzigd" — dezelfde
-afspraak als in KubeManager.
+teruggestuurd. Een veld leeg laten betekent overal "ongewijzigd".
 
 ---
 
@@ -166,22 +165,23 @@ probeert de test beide en slaat op wat werkelijk werkt.
 
 ### Aanbevolen: een eigen applicatie in OpenZaak
 
-Je kunt de bestaande credentials gebruiken die KubeManager tijdens de installatie
-heeft aangemaakt. Dat werkt meteen, maar voor de herleidbaarheid is het beter om
-in *OpenZaak → Applicaties* een eigen applicatie voor CommonControl aan te maken en
-die client-id/secret hier in te vullen. In de auditlog van OpenZaak zelf staat
-dan bovendien welke beheerder de handeling deed — CommonControl zet de ingelogde
-gebruiker in het `user_id` van het JWT.
+Je kunt bestaande credentials hergebruiken die al voor deze componenten zijn
+aangemaakt (bijvoorbeeld via een eerder ingelezen configuratiebestand). Dat werkt
+meteen, maar voor de herleidbaarheid is het beter om in *OpenZaak → Applicaties*
+een eigen applicatie voor CommonControl aan te maken en die client-id/secret hier
+in te vullen. In de auditlog van OpenZaak zelf staat dan bovendien welke
+beheerder de handeling deed — CommonControl zet de ingelogde gebruiker in het
+`user_id` van het JWT.
 
 ---
 
 ## Draaien
 
-### Via KubeManager (aanbevolen bij een Madaro-cluster)
+### Via de Madaro-uitrolknop (aanbevolen bij een Madaro-cluster)
 
 **Apps bouwen &amp; uitrollen → CommonControl → "Installeren & uitrollen".** Vul een
 hostnaam in (en optioneel een Let's Encrypt-adres en de gebruikersnaam van de
-eerste beheerder); KubeManager rolt dan in één keer uit:
+eerste beheerder); dat rolt dan in één keer uit:
 
 * namespace, PostgreSQL met eigen PVC, en de app-deployment;
 * een `commoncontrol-secret` met een gegenereerde `SECRET_KEY`, `ENCRYPTION_KEY`,
@@ -198,8 +198,8 @@ CommonControl**.
 > componenten versleuteld zijn. Wie die vervangt, maakt ze onleesbaar en moet ze
 > allemaal opnieuw invoeren.
 
-KubeManager is hierbij alleen de uitrolknop. CommonControl praat daarna
-uitsluitend met de componenten via hun eigen API's en heeft KubeManager niet
+De installer is hierbij alleen de uitrolknop. CommonControl praat daarna
+uitsluitend met de componenten via hun eigen API's en heeft die installer niet
 nodig — ook niet als de componenten op een ander platform draaien.
 
 ### Lokaal
@@ -257,8 +257,8 @@ python manage.py test tests --settings=commoncontrol.test_settings
   pogingenlimiet, uitloggen alleen via POST, en `?next=` alleen binnen de app;
 * padopbouw: een identificatie met `../` erin kan het pad niet veranderen;
 * de doorgeefluik-route weigert een URL buiten het component;
-* het inlezen van een KubeManager-configuratie, inclusief de gevallen zonder
-  token;
+* het inlezen van een bestaand wizard-configuratiebestand, inclusief de
+  gevallen zonder token;
 * de integriteit van de registry zelf.
 
 > Die laatste categorie bewees zichzelf meteen: de test op titelvelden vond dat
@@ -294,12 +294,13 @@ omgeving nog moet uitwijzen:
 
 ---
 
-## Verhouding tot KubeManager
+## Functioneel versus technisch beheer
 
-KubeManager **installeert en onderhoudt** de componenten (Helm, cluster, back-ups,
-certificaten). CommonControl **beheert de inhoud** ervan (zaaktypen, abonnementen,
-objecttypen, partijen). Ze overlappen bewust niet, en CommonControl heeft
-KubeManager niet nodig: de import is een gemak, geen afhankelijkheid.
+CommonControl **beheert de inhoud** van de componenten (zaaktypen, abonnementen,
+objecttypen, partijen) via hun publieke API's. Het installeren en technisch
+onderhouden van de componenten zelf (cluster, back-ups, certificaten) valt hier
+bewust buiten: dat is een aparte verantwoordelijkheid, en CommonControl heeft
+daar geen afhankelijkheid van.
 
 ---
 
