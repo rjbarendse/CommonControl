@@ -2,8 +2,8 @@
 # ingress-controllers van AKS/EKS/GKE. Bewust géén Traefik-specifieke
 # IngressRoute, zodat dit op elk platform zonder aanpassing werkt.
 #
-# Draai je Traefik met cert-manager (zoals in een KubeManager-cluster), dan is
-# de annotatie hieronder genoeg voor een Let's Encrypt-certificaat.
+# Draai je Traefik met cert-manager, dan is de annotatie hieronder genoeg voor
+# een Let's Encrypt-certificaat.
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
