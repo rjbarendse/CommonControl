@@ -1,0 +1,27 @@
+{% extends "basis.html" %}
+{% block titel %}Inloggen{% endblock %}
+{% block inhoud %}
+<h1>Inloggen</h1>
+<p class="onder">Beheeromgeving voor de CommonGround-componenten.</p>
+
+{% if fout %}<div class="msg err" role="alert">{{ fout }}</div><br>{% endif %}
+
+<form method="post" autocomplete="on">
+  {% csrf_token %}
+  <input type="hidden" name="next" value="{{ next }}">
+  <div class="form-row">
+    <label for="gebruikersnaam">Gebruikersnaam</label>
+    <input id="gebruikersnaam" name="gebruikersnaam" autocomplete="username" required autofocus>
+  </div>
+  <div class="form-row">
+    <label for="wachtwoord">Wachtwoord</label>
+    <input id="wachtwoord" name="wachtwoord" type="password" autocomplete="current-password" required>
+  </div>
+  <button class="btn btn-primary" type="submit">Inloggen</button>
+</form>
+
+{% if sso_actief %}
+<div class="auth-scheiding">of</div>
+<a class="btn btn-secondary" href="{% url 'toegang:sso_start' %}?next={{ next|urlencode }}">{{ sso_label }}</a>
+{% endif %}
+{% endblock %}

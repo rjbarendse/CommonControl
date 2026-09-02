@@ -1,0 +1,59 @@
+{% load static %}<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{{ app_naam }} | By Madaro Services</title>
+<link rel="icon" href="{% static 'commoncontrol/favicon.svg' %}" type="image/svg+xml">
+<link rel="stylesheet" href="{% static 'commoncontrol/css/commoncontrol.css' %}">
+</head>
+<body class="app-body">
+
+<header>
+  <div class="logo">
+    <div class="logo-icon">CC</div>
+    <div class="logo-left">
+      <span class="logo-title">CommonControl<span class="logo-beta">beta</span></span>
+      <span class="logo-sub">COMMONGROUND BEHEER</span>
+    </div>
+    <div class="logo-right"><small>By Madaro Services</small></div>
+  </div>
+
+  <div class="header-right">
+    <div style="position:relative">
+      <div class="omgeving-badge" id="omgevingBadge" role="button" tabindex="0"
+           aria-haspopup="listbox" aria-expanded="false">
+        <span class="status-dot onbekend" id="omgevingDot"></span>
+        <span id="omgevingLabel">Laden…</span>
+        <span class="pijl">▼</span>
+      </div>
+      <div class="dropdown" id="omgevingMenu" role="listbox"></div>
+    </div>
+    <button class="btn-header" id="knopVerversen" title="Opnieuw laden">↻ Verversen</button>
+    <div style="position:relative">
+      <button class="btn-header" id="knopGebruiker" aria-haspopup="menu" aria-expanded="false">
+        <span id="gebruikerNaam">…</span> ▼
+      </button>
+      <div class="dropdown" id="gebruikerMenu" role="menu"></div>
+    </div>
+  </div>
+</header>
+
+<div id="demoBanner" class="demo-banner" hidden>
+  <span class="demo-banner-icoon" aria-hidden="true">👁</span>
+  <span><strong>Demo-account.</strong> Je kunt alles inzien, maar niets wijzigen. Knoppen om aan te maken, te bewerken of te verwijderen ontbreken daarom.</span>
+</div>
+
+<div class="romp">
+  <nav class="zijbalk" id="zijbalk" aria-label="Componenten"></nav>
+  <main id="hoofd"><p class="hint">Laden…</p></main>
+</div>
+
+<div id="modaal"></div>
+<div id="toasts" aria-live="polite"></div>
+
+<form id="uitlogForm" method="post" action="{% url 'toegang:uitloggen' %}" hidden>{% csrf_token %}</form>
+
+<script src="{% static 'commoncontrol/js/app.js' %}"></script>
+</body>
+</html>

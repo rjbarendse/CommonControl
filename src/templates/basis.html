@@ -1,0 +1,26 @@
+{% load static %}<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{% block titel %}{{ app_naam }}{% endblock %} | {{ app_naam }}</title>
+<link rel="icon" href="{% static 'commoncontrol/favicon.svg' %}" type="image/svg+xml">
+<link rel="stylesheet" href="{% static 'commoncontrol/css/commoncontrol.css' %}">
+</head>
+<body>
+<div class="auth-wrap">
+  <div class="auth-kaart">
+    <div class="logo">
+      <div class="logo-icon">CC</div>
+      <div class="logo-left">
+        <span class="logo-title">CommonControl</span>
+        <span class="logo-sub">COMMONGROUND BEHEER</span>
+      </div>
+      <div class="logo-right"><small>By Madaro Services</small></div>
+    </div>
+    {% block inhoud %}{% endblock %}
+    <p class="auth-voet">{{ app_naam }} {{ app_versie }}</p>
+  </div>
+</div>
+</body>
+</html>

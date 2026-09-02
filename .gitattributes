@@ -1,0 +1,8 @@
+# Regeleindes vastleggen. Dit project wordt op Windows bewerkt maar draait in
+# een Linux-container: een shellscript met CRLF start daar niet.
+* text=auto eol=lf
+*.sh text eol=lf
+Dockerfile text eol=lf
+*.png binary
+*.jpg binary
+*.ico binary

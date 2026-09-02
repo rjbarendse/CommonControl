@@ -1,0 +1,23 @@
+{% extends "basis.html" %}
+{% block titel %}Tweede factor{% endblock %}
+{% block inhoud %}
+<h1>Tweede factor</h1>
+<p class="onder">Vul de code uit je authenticator-app in.</p>
+
+{% if fout %}<div class="msg err" role="alert">{{ fout }}</div><br>{% endif %}
+
+<form method="post">
+  {% csrf_token %}
+  <div class="form-row">
+    <label for="code" class="sr-only">Code</label>
+    <input id="code" name="code" class="code-invoer" inputmode="numeric" autocomplete="one-time-code"
+           maxlength="6" pattern="[0-9]*" required autofocus>
+  </div>
+  <button class="btn btn-primary" type="submit">Doorgaan</button>
+</form>
+
+<form method="post" action="{% url 'toegang:uitloggen' %}" style="margin-top:14px">
+  {% csrf_token %}
+  <button class="btn btn-secondary" type="submit">Uitloggen</button>
+</form>
+{% endblock %}

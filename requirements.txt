@@ -1,0 +1,23 @@
+# CommonControl - Python-afhankelijkheden
+#
+# Bewust klein gehouden: alle authenticatie (wachtwoord, TOTP-MFA, OIDC) is
+# zelfstandig geimplementeerd in de `toegang`-app in plaats van via
+# django-two-factor-auth / mozilla-django-oidc-db. Reden: die twee vergen
+# template-overrides en URL-includes die in dit ecosysteem eerder meerdere
+# bugrondes kostten, terwijl CommonControl zijn login-/MFA-schermen toch
+# volledig in de eigen huisstijl moet renderen. pyotp + PyJWT zijn klein, goed
+# getest en volledig te doorgronden.
+#
+# Django 5.2 is de LTS-reeks: beveiligingsupdates tot april 2028. Django 5.1 is
+# sinds december 2025 end-of-life en mag hier dus niet meer staan.
+# Controleer de versies periodiek; pas ze aan zodra er een beveiligingsrelease is.
+
+Django==5.2.17              # LTS
+psycopg[binary]==3.3.5      # PostgreSQL-driver (psycopg 3)
+httpx==0.28.1               # HTTP-client naar de CommonGround-API's
+PyJWT==2.13.0               # ZGW-JWT ondertekenen + OIDC id_token verifieren
+cryptography==50.0.1        # Fernet-versleuteling van opgeslagen secrets + JWKS
+pyotp==2.10.0               # TOTP (authenticator-app)
+qrcode==8.2                 # QR-code bij MFA-inschrijving (SVG: geen Pillow nodig)
+whitenoise==6.12.0          # statische bestanden serveren (gunicorn doet dat niet)
+gunicorn==26.2.0

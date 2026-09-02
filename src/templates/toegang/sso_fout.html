@@ -1,0 +1,11 @@
+{% extends "basis.html" %}
+{% block titel %}Inloggen via SSO{% endblock %}
+{% block inhoud %}
+<h1>Inloggen via SSO lukte niet</h1>
+<div class="msg err" role="alert">{{ melding }}</div>
+<p class="hint" style="margin:16px 0">
+  Klopt dit niet? Een beheerder kan de SSO-instellingen nakijken onder
+  Instellingen → Single Sign On.
+</p>
+<a class="btn btn-secondary" href="{% url 'toegang:inloggen' %}">Terug naar inloggen</a>
+{% endblock %}

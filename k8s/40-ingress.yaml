@@ -1,0 +1,28 @@
+# Standaard Kubernetes-Ingress: werkt met Traefik, ingress-nginx en de
+# ingress-controllers van AKS/EKS/GKE. Bewust géén Traefik-specifieke
+# IngressRoute, zodat dit op elk platform zonder aanpassing werkt.
+#
+# Draai je Traefik met cert-manager (zoals in een KubeManager-cluster), dan is
+# de annotatie hieronder genoeg voor een Let's Encrypt-certificaat.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: commoncontrol
+  namespace: commoncontrol
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+spec:
+  ingressClassName: traefik
+  tls:
+    - hosts: [commoncontrol.gemeente.nl]
+      secretName: commoncontrol-tls
+  rules:
+    - host: commoncontrol.gemeente.nl
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: commoncontrol
+                port: {number: 80}

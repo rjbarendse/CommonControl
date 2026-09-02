@@ -1,0 +1,14 @@
+.git
+.gitignore
+*.md
+!README.md
+__pycache__
+*.pyc
+*.pyo
+.env
+.venv
+venv
+k8s/
+docker-compose.yml
+src/static-collected/
+src/db.sqlite3

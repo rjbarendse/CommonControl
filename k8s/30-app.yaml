@@ -1,0 +1,65 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: commoncontrol
+  namespace: commoncontrol
+spec:
+  replicas: 2
+  selector:
+    matchLabels: {app: commoncontrol}
+  template:
+    metadata:
+      labels: {app: commoncontrol}
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1001
+      containers:
+        - name: commoncontrol
+          image: madaro/commoncontrol:1.0.0
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: DB_HOST
+              value: commoncontrol-db
+            - name: DB_NAME
+              value: commoncontrol
+            - name: DB_USER
+              value: commoncontrol
+            # Pas ALLOWED_HOSTS aan naar de eigen hostnaam.
+            - name: ALLOWED_HOSTS
+              value: commoncontrol.gemeente.nl
+          envFrom:
+            - secretRef: {name: commoncontrol-secret}
+          ports: [{containerPort: 8000}]
+          readinessProbe:
+            httpGet: {path: /gezond/, port: 8000}
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          livenessProbe:
+            httpGet: {path: /gezond/, port: 8000}
+            initialDelaySeconds: 30
+            periodSeconds: 30
+          resources:
+            requests: {cpu: 100m, memory: 256Mi}
+            limits: {memory: 768Mi}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: {drop: [ALL]}
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        # Nodig omdat het bestandssysteem alleen-lezen is; gunicorn en Python
+        # schrijven tijdelijke bestanden.
+        - name: tmp
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: commoncontrol
+  namespace: commoncontrol
+spec:
+  selector: {app: commoncontrol}
+  ports: [{port: 80, targetPort: 8000}]
