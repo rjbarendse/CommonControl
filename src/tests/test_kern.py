@@ -288,6 +288,23 @@ class RegistryIntegriteitTest(TestCase):
                     self.assertIn("lijst", doel.methoden, plek)
                     self.assertEqual(veld.type, "url", plek)
 
+    def test_catalogus_en_kanaal_bieden_geen_bewerkingen_aan_die_de_api_weigert(self):
+        """
+        Bugmelding (live gemeten tegen OpenZaak/Open Notificaties, niet
+        aangenomen): de knoppen "Bewerken"/"Verwijderen" stonden aan terwijl
+        de onderliggende API-endpoints die methoden niet kennen — het
+        component antwoordde met "Methode 'DELETE' niet toegestaan."
+        Geverifieerd tegen de officiële OpenAPI-specs: /catalogussen/{uuid}
+        kent alleen GET, /kanaal/{uuid} kent GET+PUT maar geen DELETE.
+        """
+        oz = registry.component("openzaak")
+        catalogussen = next(r for r in oz.resources if r.key == "catalogussen")
+        self.assertEqual(set(catalogussen.methoden), {"lijst", "detail", "maak"})
+
+        notif = registry.component("notificaties")
+        kanaal = next(r for r in notif.resources if r.key == "kanaal")
+        self.assertEqual(set(kanaal.methoden), {"lijst", "detail", "maak", "wijzig"})
+
 
 class UitrolbaarheidTest(TestCase):
     """

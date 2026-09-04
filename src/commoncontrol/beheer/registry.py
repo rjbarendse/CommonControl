@@ -217,7 +217,16 @@ OPENZAAK = Component(
         Resource(
             key="catalogussen", label="Catalogus", label_mv="Catalogussen",
             api="catalogi", pad="/catalogussen", titel_veld="naam",
-            hint="Een catalogus bundelt alle zaaktypen van één organisatie.",
+            # Geverifieerd tegen de officiële Catalogi API-OpenAPI-spec:
+            # /catalogussen/{uuid} kent alléén GET. Geen PUT/PATCH/DELETE —
+            # een catalogus is dus alleen aan te maken en in te zien, niet
+            # te wijzigen of te verwijderen via de API.
+            methoden=("lijst", "detail", "maak"),
+            hint=(
+                "Een catalogus bundelt alle zaaktypen van één organisatie. Eenmaal "
+                "aangemaakt is een catalogus niet meer te wijzigen of te verwijderen via "
+                "de API — dat kan alleen in OpenZaak zelf."
+            ),
             velden=(
                 UUID, URL,
                 Veld("naam", "Naam", verplicht=False, in_lijst=True),
@@ -619,7 +628,13 @@ NOTIFICATIES = Component(
         Resource(
             key="kanaal", label="Kanaal", label_mv="Kanalen",
             api="nrc", pad="/kanaal", titel_veld="naam", gepagineerd=False,
-            hint="Kanalen worden normaal door de bronapplicatie zelf geregistreerd.",
+            # Geverifieerd tegen de officiële Open Notificaties-OpenAPI-spec:
+            # /kanaal/{uuid} kent GET en PUT, maar geen DELETE.
+            methoden=("lijst", "detail", "maak", "wijzig"),
+            hint=(
+                "Kanalen worden normaal door de bronapplicatie zelf geregistreerd. Eenmaal "
+                "aangemaakt is een kanaal niet meer te verwijderen via de API."
+            ),
             velden=(
                 UUID, URL,
                 Veld("naam", "Naam", verplicht=True, in_lijst=True),
