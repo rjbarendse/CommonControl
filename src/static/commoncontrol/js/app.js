@@ -667,9 +667,17 @@ function opentFormulier(comp, resource, rij, ouderId) {
 
   // Ontsnappingsklep: het volledige object als JSON. Zo is elk veld dat de
   // registry (nog) niet kent alsnog te zien en te bewerken.
+  //
+  // Bewust een apart "gewijzigd"-vlagje i.p.v. rauwBlok.open bij het versturen:
+  // dit tekstvak toont bij een nieuw item altijd een statische lege '{}' en
+  // volgt de formuliervelden erboven niet live. Wie het blokje alleen opent
+  // om te kijken (zonder iets te typen) zou anders zijn hele formulier
+  // stilzwijgend zien vervangen door die lege '{}' — precies wat er misging.
+  let rauwGewijzigd = false;
   const rauw = h('textarea', {
     spellcheck: 'false', style: 'min-height:240px',
     readonly: !magSchrijven,
+    oninput: () => { rauwGewijzigd = true; },
   }, rij ? JSON.stringify(rij, null, 2) : '{}');
   const rauwBlok = h('details', { style: 'margin-top:8px' },
     h('summary', { style: 'cursor:pointer;font-size:12px;font-weight:700;color:var(--text-muted)' },
@@ -694,7 +702,7 @@ function opentFormulier(comp, resource, rij, ouderId) {
 
         let gegevens;
         try {
-          gegevens = rauwBlok.open
+          gegevens = rauwGewijzigd
             ? JSON.parse(rauw.value || '{}')
             : verzamel(invoerVelden, nieuw);
         } catch (err) {
