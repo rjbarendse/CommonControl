@@ -49,6 +49,14 @@ class Veld:
     hint: str = ""
     alleen_lezen: bool = False
     in_lijst: bool = False
+    # Sleutel van een resource BINNEN HETZELFDE COMPONENT waar dit url-veld
+    # naar verwijst (bv. "catalogussen" bij Zaaktype.catalogus). De interface
+    # haalt dan bij het openen van het formulier de bestaande items van die
+    # resource op en biedt ze aan als voorstellen (via een <datalist>), naast
+    # de mogelijkheid om zelf een URL te typen/plakken. Leeg = geen
+    # voorstellen — geldt voor externe verwijzingen (bv. de Selectielijst-API)
+    # en voor cross-component verwijzingen, die de registry niet modelleert.
+    verwijst_naar: str = ""
 
     def als_dict(self) -> dict:
         return {
@@ -60,6 +68,7 @@ class Veld:
             "hint": self.hint,
             "alleenLezen": self.alleen_lezen,
             "inLijst": self.in_lijst,
+            "verwijstNaar": self.verwijst_naar,
         }
 
 
@@ -259,7 +268,7 @@ OPENZAAK = Component(
                      hint="Lijst met URL's naar producten/diensten. Mag leeg zijn."),
                 Veld("referentieproces", "Referentieproces", "json", verplicht=True,
                      hint='Bijvoorbeeld {"naam": "Vergunningaanvraag", "link": ""}'),
-                Veld("catalogus", "Catalogus", "url", verplicht=True),
+                Veld("catalogus", "Catalogus", "url", verplicht=True, verwijst_naar="catalogussen"),
                 Veld("besluittypen", "Besluittypen", "lijst", verplicht=True),
                 Veld("gerelateerdeZaaktypen", "Gerelateerde zaaktypen", "json", verplicht=True),
                 Veld("selectielijstProcestype", "Selectielijst-procestype", "url"),
@@ -278,7 +287,8 @@ OPENZAAK = Component(
                 Veld("omschrijving", "Omschrijving", verplicht=True, in_lijst=True),
                 Veld("omschrijvingGeneriek", "Omschrijving generiek"),
                 Veld("statustekst", "Statustekst"),
-                Veld("zaaktype", "Zaaktype", "url", verplicht=True, in_lijst=True),
+                Veld("zaaktype", "Zaaktype", "url", verplicht=True, in_lijst=True,
+                     verwijst_naar="zaaktypen"),
                 Veld("volgnummer", "Volgnummer", "getal", verplicht=True, in_lijst=True),
                 Veld("isEindstatus", "Is eindstatus", "bool", alleen_lezen=True),
                 Veld("informeren", "Informeren", "bool"),
@@ -290,7 +300,8 @@ OPENZAAK = Component(
             filters=(Veld("zaaktype", "Zaaktype", "url"),),
             velden=(
                 UUID, URL,
-                Veld("zaaktype", "Zaaktype", "url", verplicht=True, in_lijst=True),
+                Veld("zaaktype", "Zaaktype", "url", verplicht=True, in_lijst=True,
+                     verwijst_naar="zaaktypen"),
                 Veld("omschrijving", "Omschrijving", verplicht=True, in_lijst=True),
                 Veld("resultaattypeomschrijving", "Resultaattypeomschrijving", "url",
                      verplicht=True),
@@ -308,7 +319,8 @@ OPENZAAK = Component(
             filters=(Veld("zaaktype", "Zaaktype", "url"),),
             velden=(
                 UUID, URL,
-                Veld("zaaktype", "Zaaktype", "url", verplicht=True, in_lijst=True),
+                Veld("zaaktype", "Zaaktype", "url", verplicht=True, in_lijst=True,
+                     verwijst_naar="zaaktypen"),
                 Veld("omschrijving", "Omschrijving", verplicht=True, in_lijst=True),
                 Veld("omschrijvingGeneriek", "Omschrijving generiek", "keuze", verplicht=True,
                      in_lijst=True,
@@ -325,7 +337,8 @@ OPENZAAK = Component(
                 UUID, URL,
                 Veld("naam", "Naam", verplicht=True, in_lijst=True),
                 Veld("definitie", "Definitie", verplicht=True),
-                Veld("zaaktype", "Zaaktype", "url", verplicht=True, in_lijst=True),
+                Veld("zaaktype", "Zaaktype", "url", verplicht=True, in_lijst=True,
+                     verwijst_naar="zaaktypen"),
                 Veld("specificatie", "Specificatie", "json", verplicht=True,
                      hint='Bijvoorbeeld {"groep":"","formaat":"tekst","lengte":"20",'
                           '"kardinaliteit":"1","waardenverzameling":[]}'),
@@ -340,7 +353,7 @@ OPENZAAK = Component(
                      Veld("status", "Status", "keuze", keuzes=("alles", "concept", "definitief"))),
             velden=(
                 UUID, URL,
-                Veld("catalogus", "Catalogus", "url", verplicht=True),
+                Veld("catalogus", "Catalogus", "url", verplicht=True, verwijst_naar="catalogussen"),
                 Veld("omschrijving", "Omschrijving", verplicht=True, in_lijst=True),
                 Veld("vertrouwelijkheidaanduiding", "Vertrouwelijkheid", "keuze",
                      verplicht=True, keuzes=VERTROUWELIJKHEID, in_lijst=True),
@@ -355,7 +368,7 @@ OPENZAAK = Component(
             filters=(Veld("catalogus", "Catalogus", "url"),),
             velden=(
                 UUID, URL,
-                Veld("catalogus", "Catalogus", "url", verplicht=True),
+                Veld("catalogus", "Catalogus", "url", verplicht=True, verwijst_naar="catalogussen"),
                 Veld("omschrijving", "Omschrijving", in_lijst=True),
                 Veld("omschrijvingGeneriek", "Omschrijving generiek"),
                 Veld("besluitcategorie", "Besluitcategorie"),
@@ -375,13 +388,14 @@ OPENZAAK = Component(
             filters=(Veld("zaaktype", "Zaaktype", "url"),),
             velden=(
                 UUID, URL,
-                Veld("zaaktype", "Zaaktype", "url", verplicht=True, in_lijst=True),
+                Veld("zaaktype", "Zaaktype", "url", verplicht=True, in_lijst=True,
+                     verwijst_naar="zaaktypen"),
                 Veld("informatieobjecttype", "Informatieobjecttype", "url", verplicht=True,
-                     in_lijst=True),
+                     in_lijst=True, verwijst_naar="informatieobjecttypen"),
                 Veld("volgnummer", "Volgnummer", "getal", verplicht=True),
                 Veld("richting", "Richting", "keuze", verplicht=True,
                      keuzes=("inkomend", "intern", "uitgaand"), in_lijst=True),
-                Veld("statustype", "Statustype", "url"),
+                Veld("statustype", "Statustype", "url", verwijst_naar="statustypen"),
             ),
         ),
         # ── Zaken ───────────────────────────────────────────────────────────
@@ -408,7 +422,8 @@ OPENZAAK = Component(
                 Veld("bronorganisatie", "Bronorganisatie (RSIN)", verplicht=True),
                 Veld("omschrijving", "Omschrijving", in_lijst=True),
                 Veld("toelichting", "Toelichting", "tekstlang"),
-                Veld("zaaktype", "Zaaktype", "url", verplicht=True, in_lijst=True),
+                Veld("zaaktype", "Zaaktype", "url", verplicht=True, in_lijst=True,
+                     verwijst_naar="zaaktypen"),
                 Veld("registratiedatum", "Registratiedatum", "datum"),
                 Veld("verantwoordelijkeOrganisatie", "Verantwoordelijke organisatie (RSIN)",
                      verplicht=True),
@@ -437,8 +452,9 @@ OPENZAAK = Component(
             filters=(Veld("zaak", "Zaak", "url"),),
             velden=(
                 UUID, URL,
-                Veld("zaak", "Zaak", "url", verplicht=True, in_lijst=True),
-                Veld("statustype", "Statustype", "url", verplicht=True, in_lijst=True),
+                Veld("zaak", "Zaak", "url", verplicht=True, in_lijst=True, verwijst_naar="zaken"),
+                Veld("statustype", "Statustype", "url", verplicht=True, in_lijst=True,
+                     verwijst_naar="statustypen"),
                 Veld("datumStatusGezet", "Datum gezet", "datumtijd", verplicht=True,
                      in_lijst=True),
                 Veld("statustoelichting", "Toelichting", "tekstlang"),
@@ -454,12 +470,13 @@ OPENZAAK = Component(
                                   "organisatorische_eenheid", "medewerker"))),
             velden=(
                 UUID, URL,
-                Veld("zaak", "Zaak", "url", verplicht=True, in_lijst=True),
+                Veld("zaak", "Zaak", "url", verplicht=True, in_lijst=True, verwijst_naar="zaken"),
                 Veld("betrokkene", "Betrokkene", "url"),
                 Veld("betrokkeneType", "Betrokkenetype", "keuze", verplicht=True, in_lijst=True,
                      keuzes=("natuurlijk_persoon", "niet_natuurlijk_persoon", "vestiging",
                              "organisatorische_eenheid", "medewerker")),
-                Veld("roltype", "Roltype", "url", verplicht=True, in_lijst=True),
+                Veld("roltype", "Roltype", "url", verplicht=True, in_lijst=True,
+                     verwijst_naar="roltypen"),
                 Veld("roltoelichting", "Toelichting", "tekstlang", verplicht=True),
                 Veld("betrokkeneIdentificatie", "Betrokkene-identificatie", "json"),
             ),
@@ -471,8 +488,9 @@ OPENZAAK = Component(
             filters=(Veld("zaak", "Zaak", "url"),),
             velden=(
                 UUID, URL,
-                Veld("zaak", "Zaak", "url", verplicht=True, in_lijst=True),
-                Veld("resultaattype", "Resultaattype", "url", verplicht=True, in_lijst=True),
+                Veld("zaak", "Zaak", "url", verplicht=True, in_lijst=True, verwijst_naar="zaken"),
+                Veld("resultaattype", "Resultaattype", "url", verplicht=True, in_lijst=True,
+                     verwijst_naar="resultaattypen"),
                 Veld("toelichting", "Toelichting", "tekstlang"),
             ),
         ),
@@ -482,9 +500,9 @@ OPENZAAK = Component(
             filters=(Veld("zaak", "Zaak", "url"),),
             velden=(
                 UUID, URL,
-                Veld("zaak", "Zaak", "url", verplicht=True, in_lijst=True),
+                Veld("zaak", "Zaak", "url", verplicht=True, in_lijst=True, verwijst_naar="zaken"),
                 Veld("informatieobject", "Informatieobject", "url", verplicht=True,
-                     in_lijst=True),
+                     in_lijst=True, verwijst_naar="enkelvoudiginformatieobjecten"),
                 Veld("titel", "Titel", in_lijst=True),
                 Veld("beschrijving", "Beschrijving", "tekstlang"),
             ),
@@ -516,7 +534,8 @@ OPENZAAK = Component(
                 Veld("inhoud", "Inhoud (base64)", "tekstlang"),
                 Veld("bestandsomvang", "Bestandsomvang", "getal"),
                 Veld("beschrijving", "Beschrijving", "tekstlang"),
-                Veld("informatieobjecttype", "Informatieobjecttype", "url", verplicht=True),
+                Veld("informatieobjecttype", "Informatieobjecttype", "url", verplicht=True,
+                     verwijst_naar="informatieobjecttypen"),
                 Veld("vertrouwelijkheidaanduiding", "Vertrouwelijkheid", "keuze",
                      keuzes=VERTROUWELIJKHEID),
                 Veld("indicatieGebruiksrecht", "Indicatie gebruiksrecht", "bool"),
@@ -529,7 +548,7 @@ OPENZAAK = Component(
             velden=(
                 UUID, URL,
                 Veld("informatieobject", "Informatieobject", "url", verplicht=True,
-                     in_lijst=True),
+                     in_lijst=True, verwijst_naar="enkelvoudiginformatieobjecten"),
                 Veld("startdatum", "Startdatum", "datumtijd", verplicht=True, in_lijst=True),
                 Veld("einddatum", "Einddatum", "datumtijd"),
                 Veld("omschrijvingVoorwaarden", "Omschrijving voorwaarden", "tekstlang",
@@ -546,8 +565,9 @@ OPENZAAK = Component(
                 Veld("identificatie", "Identificatie", in_lijst=True),
                 Veld("verantwoordelijkeOrganisatie", "Verantwoordelijke organisatie (RSIN)",
                      verplicht=True),
-                Veld("besluittype", "Besluittype", "url", verplicht=True, in_lijst=True),
-                Veld("zaak", "Zaak", "url", in_lijst=True),
+                Veld("besluittype", "Besluittype", "url", verplicht=True, in_lijst=True,
+                     verwijst_naar="besluittypen"),
+                Veld("zaak", "Zaak", "url", in_lijst=True, verwijst_naar="zaken"),
                 Veld("datum", "Datum", "datum", verplicht=True, in_lijst=True),
                 Veld("toelichting", "Toelichting", "tekstlang"),
                 Veld("ingangsdatum", "Ingangsdatum", "datum", verplicht=True),
@@ -1009,8 +1029,8 @@ OPENFORMS = Component(
                 Veld("internalName", "Interne naam"),
                 Veld("active", "Actief", "bool", in_lijst=True),
                 Veld("maintenanceMode", "Onderhoudsmodus", "bool", in_lijst=True),
-                Veld("category", "Categorie", "url"),
-                Veld("theme", "Thema", "url"),
+                Veld("category", "Categorie", "url", verwijst_naar="categories"),
+                Veld("theme", "Thema", "url", verwijst_naar="themes"),
                 Veld("authenticationBackends", "Authenticatie", "lijst"),
                 Veld("paymentRequired", "Betaling vereist", "bool", alleen_lezen=True),
                 Veld("submissionAllowed", "Inzenden toegestaan", "keuze",

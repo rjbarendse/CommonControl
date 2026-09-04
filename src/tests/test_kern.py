@@ -268,6 +268,26 @@ class RegistryIntegriteitTest(TestCase):
                     f"{comp.key}/{res.key}: titelveld '{titel}' bestaat niet",
                 )
 
+    def test_verwijst_naar_wijst_naar_een_lijstbare_resource_in_hetzelfde_component(self):
+        """
+        `verwijst_naar` voedt de dropdown-voorstellen in een url-veld (zie
+        opentFormulier in app.js) met een live opgehaalde lijst van die
+        resource. Wijst het naar een niet-bestaande of niet-lijstbare
+        resource, dan faalt die ophaal-actie stil bij elke gebruiker die het
+        veld opent — vandaar deze harde registry-check.
+        """
+        for comp in registry.COMPONENTEN:
+            sleutels = {r.key: r for r in comp.resources}
+            for res in comp.resources:
+                for veld in (*res.velden, *res.filters):
+                    if not veld.verwijst_naar:
+                        continue
+                    plek = f"{comp.key}/{res.key}/{veld.naam}"
+                    self.assertIn(veld.verwijst_naar, sleutels, plek)
+                    doel = sleutels[veld.verwijst_naar]
+                    self.assertIn("lijst", doel.methoden, plek)
+                    self.assertEqual(veld.type, "url", plek)
+
 
 class UitrolbaarheidTest(TestCase):
     """

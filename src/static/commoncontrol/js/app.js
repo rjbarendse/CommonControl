@@ -610,6 +610,42 @@ function geneste(comp, resource) {
   return comp.resources.find((r) => r.ouder === resource.key) || null;
 }
 
+// Oplopende teller voor unieke <datalist>-id's — een formulier kan meerdere
+// url-velden met voorstellen tonen, en een gebruiker kan meerdere formulieren
+// ná elkaar openen binnen dezelfde pagina.
+let _datalistTeller = 0;
+
+/**
+ * Haalt de bestaande items van een resource op als {url, label}-paren, voor
+ * de voorstellen bij een url-veld dat naar die resource verwijst (zie
+ * registry.py: Veld.verwijst_naar). Faalt stil — zonder voorstellen blijft
+ * het veld gewoon een vrij in te vullen tekstveld.
+ */
+async function haalUrlKandidaten(comp, doelSleutel) {
+  const doel = comp.resources.find((r) => r.key === doelSleutel);
+  if (!doel) return [];
+  const MAX = 300;   // ruim genoeg voor een dropdown, voorkomt een op hol geslagen ophaalactie
+  const kandidaten = [];
+  try {
+    let pagina = 1;
+    for (;;) {
+      const params = new URLSearchParams();
+      if (doel.gepagineerd !== false && pagina > 1) params.set('page', pagina);
+      const gegevens = await api(`/api/beheer/${staat.omgeving}/${comp.key}/${doel.key}?${params}`);
+      const rijen = Array.isArray(gegevens) ? gegevens : (gegevens && gegevens.results) || [];
+      for (const rij of rijen) {
+        if (rij && rij.url) kandidaten.push({ url: rij.url, label: rij[doel.titelVeld] || rij.url });
+      }
+      const volgende = !Array.isArray(gegevens) && gegevens && gegevens.next;
+      if (!volgende || rijen.length === 0 || kandidaten.length >= MAX) break;
+      pagina += 1;
+    }
+  } catch {
+    return kandidaten;   // wat er al binnen was blijft bruikbaar
+  }
+  return kandidaten;
+}
+
 // ── Formulier ──────────────────────────────────────────────────────────────
 
 function opentFormulier(comp, resource, rij, ouderId) {
@@ -630,6 +666,8 @@ function opentFormulier(comp, resource, rij, ouderId) {
     const breed = ['tekstlang', 'json', 'lijst'].includes(veld.type);
 
     let invoer;
+    let datalistVoorDitVeld = null;
+    let hintVoorDitVeld = '';
     if (veld.type === 'bool') {
       invoer = h('select', { class: 'kies', disabled: alleenLezen },
         h('option', { value: '' }, '—'),
@@ -650,17 +688,38 @@ function opentFormulier(comp, resource, rij, ouderId) {
       const soort = veld.type === 'datum' ? 'date'
         : veld.type === 'getal' ? 'number'
           : veld.type === 'email' ? 'email' : 'text';
-      invoer = h('input', {
+      const attrs = {
         type: soort, readonly: alleenLezen,
         value: waarde == null ? '' : String(waarde),
-      });
+      };
+      // url-veld dat naar een resource binnen dit component verwijst (bv.
+      // Zaaktype.catalogus): voorstellen tonen via <datalist>, met behoud
+      // van het gewone tekstveld als terugvaloptie voor een handmatige URL.
+      if (veld.type === 'url' && veld.verwijstNaar && !alleenLezen) {
+        const doel = comp.resources.find((r) => r.key === veld.verwijstNaar);
+        if (doel) {
+          const dlId = `dl-${++_datalistTeller}`;
+          attrs.list = dlId;
+          datalistVoorDitVeld = h('datalist', { id: dlId });
+          const datalistRef = datalistVoorDitVeld;
+          haalUrlKandidaten(comp, veld.verwijstNaar).then((kandidaten) => {
+            for (const k of kandidaten) datalistRef.append(h('option', { value: k.url }, k.label));
+          });
+          if (!veld.hint) {
+            hintVoorDitVeld = `Typ om te zoeken in bestaande ${doel.labelMv.toLowerCase()}, `
+              + 'of vul zelf een URL in.';
+          }
+        }
+      }
+      invoer = h('input', attrs);
     }
 
     invoerVelden[veld.naam] = { invoer, veld };
     raster.append(h('div', { class: 'form-row' + (breed ? ' breed' : '') },
       h('label', {}, veld.label, veld.verplicht ? h('span', { class: 'verplicht' }, ' *') : null),
       invoer,
-      veld.hint ? h('div', { class: 'hint' }, veld.hint) : null,
+      datalistVoorDitVeld,
+      (veld.hint || hintVoorDitVeld) ? h('div', { class: 'hint' }, veld.hint || hintVoorDitVeld) : null,
       h('div', { class: 'veldfout', hidden: true })));
   }
   formulier.append(raster);
