@@ -286,6 +286,47 @@ class BeheerApiRechtenTest(TestCase):
         self.assertEqual(antwoord.status_code, 200)
         self.assertEqual(StubClient.laatste["pad"], "/catalogi/api/v1/zaaktypen/1")
 
+    # ── acties (registry.Actie — bv. Zaaktype.publish) ──────────────────────
+
+    @patch("commoncontrol.beheer.views.client_voor", StubClient)
+    def test_lezer_mag_geen_actie_uitvoeren(self):
+        _log_in_met_mfa(self, self.lezer)
+        antwoord = self.client.post("/api/beheer/demo/openzaak/zaaktypen/abc/acties/publish")
+        self.assertEqual(antwoord.status_code, 403)
+
+    @patch("commoncontrol.beheer.views.client_voor", StubClient)
+    def test_schrijver_mag_publiceren_en_dat_wordt_gelogd(self):
+        _log_in_met_mfa(self, self.schrijver)
+        antwoord = self.client.post("/api/beheer/demo/openzaak/zaaktypen/abc/acties/publish")
+        self.assertEqual(antwoord.status_code, 200)
+        self.assertEqual(StubClient.laatste["methode"], "POST")
+        self.assertEqual(StubClient.laatste["pad"], "/catalogi/api/v1/zaaktypen/abc/publish")
+        # Publish heeft geen velden -> geen body meesturen.
+        self.assertIsNone(StubClient.laatste["body"])
+
+        regel = Gebeurtenis.objects.get(soort="wijziging")
+        self.assertEqual(regel.actie, "publish")
+        self.assertEqual(regel.gebruikersnaam, "schrijver")
+
+    @patch("commoncontrol.beheer.views.client_voor", StubClient)
+    def test_onbekende_actie_geeft_404(self):
+        _log_in_met_mfa(self, self.schrijver)
+        antwoord = self.client.post("/api/beheer/demo/openzaak/zaaktypen/abc/acties/verzonnen")
+        self.assertEqual(antwoord.status_code, 404)
+
+    @patch("commoncontrol.beheer.views.client_voor", StubClient)
+    def test_actie_met_velden_stuurt_de_body_mee(self):
+        """zaak_afsluiten heeft wél velden (zaak/resultaat/status) -> body meesturen."""
+        _log_in_met_mfa(self, self.schrijver)
+        antwoord = self.client.post(
+            "/api/beheer/demo/openzaak/zaken/abc/acties/zaak_afsluiten",
+            data={"zaak": {"uuid": "abc"}, "resultaat": {}, "status": {}},
+            content_type="application/json",
+        )
+        self.assertEqual(antwoord.status_code, 200)
+        self.assertEqual(StubClient.laatste["pad"], "/zaken/api/v1/zaken/abc/zaak_afsluiten")
+        self.assertEqual(StubClient.laatste["body"], {"zaak": {"uuid": "abc"}, "resultaat": {}, "status": {}})
+
 
 class BeheerdersApiTest(TestCase):
     def setUp(self):

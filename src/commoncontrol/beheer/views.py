@@ -298,6 +298,54 @@ def item(request, omgeving_slug: str, component_sleutel: str, resource_sleutel: 
         return fout(exc.melding, 502, **exc.details())
 
 
+@api_view("POST")
+def actie(request, omgeving_slug: str, component_sleutel: str, resource_sleutel: str,
+          object_id: str, actie_sleutel: str):
+    """
+    Een POST-actie op een bestaand item die geen gewone 'wijzig' is (zie
+    registry.Actie) — bv. Zaaktype.publish of Zaak.zaak_verlengen. Schrijfrecht
+    is hier altijd vereist: een actie verandert per definitie iets, ook als
+    resource.methoden zelf geen 'wijzig' bevat (bv. Catalogus is nooit te
+    wijzigen, maar dat zegt niets over een aparte actie op een ándere
+    resource zoals Zaaktype).
+    """
+    component, resource = _component_en_resource(component_sleutel, resource_sleutel)
+    _controleer_recht(request, component.key, schrijven=True)
+
+    actie_obj = next((a for a in resource.acties if a.sleutel == actie_sleutel), None)
+    if actie_obj is None:
+        raise Ongeldig(
+            f"Onbekende actie '{actie_sleutel}' op {resource.label_mv}.", 404
+        )
+
+    omgeving = _omgeving(omgeving_slug)
+    verbinding = _verbinding(omgeving, component.key)
+    client = client_voor(verbinding, request.user)
+
+    echt_id = "" if not resource.id_veld else object_id
+    basispad = bouw_pad(
+        component, resource, ouder_id=request.GET.get("ouder", ""), object_id=echt_id
+    )
+    pad = f"{basispad}/{actie_sleutel}"
+    gegevens = body_van(request) if actie_obj.velden else None
+
+    try:
+        status, resultaat = client.verzoek("POST", pad, body=gegevens, geo=resource.geo)
+        log(
+            request, "wijziging",
+            omgeving=omgeving.slug, component=component.key, resource=resource.key,
+            actie=actie_sleutel, doel=str(object_id)[:500],
+        )
+        return ok(resultaat, status=status)
+    except ApiFout as exc:
+        log(
+            request, "wijziging", gelukt=False,
+            omgeving=omgeving.slug, component=component.key, resource=resource.key,
+            actie=actie_sleutel, doel=str(object_id)[:500], detail=exc.melding[:2000],
+        )
+        return fout(exc.melding, 502, **exc.details())
+
+
 @api_view("GET")
 def rauw(request, omgeving_slug: str, component_sleutel: str):
     """

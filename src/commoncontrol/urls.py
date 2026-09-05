@@ -51,6 +51,13 @@ urlpatterns = [
         "api/beheer/<slug:omgeving_slug>/<str:component_sleutel>/<str:resource_sleutel>",
         beheer.collectie,
     ),
+    # Vóór 'item': diens <path:object_id> is gulzig genoeg om "<uuid>/acties/<sleutel>"
+    # in zijn geheel als object_id te lezen als deze route er niet eerder stond.
+    path(
+        "api/beheer/<slug:omgeving_slug>/<str:component_sleutel>/<str:resource_sleutel>"
+        "/<str:object_id>/acties/<str:actie_sleutel>",
+        beheer.actie,
+    ),
     path(
         "api/beheer/<slug:omgeving_slug>/<str:component_sleutel>/<str:resource_sleutel>"
         "/<path:object_id>",

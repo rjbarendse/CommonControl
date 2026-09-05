@@ -485,7 +485,7 @@ async function toonResource(route) {
     h('span', { class: 'kruimel' }, comp.label),
     h('span', { class: 'ml-auto' }),
     h('button', { class: 'btn btn-secondary', onclick: () => routeer() }, '↻ Verversen'),
-    magSchrijven && resource.methoden.includes('maak')
+    magSchrijven && resource.methoden.includes('maak') && resource.methoden.includes('lijst')
       ? h('button', {
         class: 'btn btn-primary',
         onclick: () => opentFormulier(comp, resource, null, route.ouder),
@@ -496,6 +496,21 @@ async function toonResource(route) {
 
   if (resource.hint) hoofd.append(h('div', { class: 'info-block info' }, resource.hint));
   if (comp.letOp) hoofd.append(h('div', { class: 'info-block warn' }, comp.letOp));
+
+  // Een resource zonder 'lijst' (bv. "Zaaknummer reserveren") heeft geen
+  // overzicht om te tonen — het IS de actie. Een GET zou hier hoe dan ook
+  // stranden op _controleer_methode (405), dus die niet eens proberen.
+  if (!resource.methoden.includes('lijst')) {
+    hoofd.append(h('div', { class: 'info-block' },
+      h('p', {}, `${resource.label} is een eenmalige actie, geen overzicht met bestaande items.`),
+      magSchrijven && resource.methoden.includes('maak')
+        ? h('button', {
+          class: 'btn btn-primary', style: 'margin-top:12px',
+          onclick: () => opentFormulier(comp, resource, null, route.ouder),
+        }, `+ ${resource.label}`)
+        : null));
+    return;
+  }
 
   // Filters
   if (resource.filters.length) {
@@ -646,6 +661,83 @@ async function haalUrlKandidaten(comp, doelSleutel) {
   return kandidaten;
 }
 
+/**
+ * Voert een registry.Actie uit op een bestaand item (zie registry.py) — bv.
+ * "Publiceren" op een zaaktype, of "Zaak afsluiten" op een zaak. Zonder
+ * velden: een kale POST, met bevestiging als de actie die vraagt. Met
+ * velden: een klein formulier (elk veld hier is in de praktijk 'json' of
+ * 'lijst' — samengestelde payloads, zie de registry-toelichting bij Actie).
+ */
+function voerActieUit(comp, resource, rij, actie) {
+  const id = haalId(rij, resource);
+  const basis = `/api/beheer/${staat.omgeving}/${comp.key}/${resource.key}/${encodeURIComponent(id)}/acties/${actie.sleutel}`;
+
+  const verstuur = async (body) => {
+    try {
+      await api(basis, { method: 'POST', body: body === undefined ? undefined : body });
+      toast(`${actie.label} uitgevoerd.`, 'success');
+      routeer();
+    } catch (err) {
+      toast(err.message, 'error');
+    }
+  };
+
+  if (!actie.velden.length) {
+    if (actie.bevestiging) {
+      bevestig(actie.label, actie.bevestiging, () => verstuur(undefined),
+        { gevaarlijk: false, knopLabel: actie.label });
+    } else {
+      verstuur(undefined);
+    }
+    return;
+  }
+
+  const invoerVelden = {};
+  const raster = h('div', { class: 'form-grid' });
+  for (const veld of actie.velden) {
+    const invoer = h('textarea', { spellcheck: 'false' },
+      veld.type === 'lijst' ? '[]' : '{}');
+    invoerVelden[veld.naam] = { invoer, veld };
+    raster.append(h('div', { class: 'form-row breed' },
+      h('label', {}, veld.label, veld.verplicht ? h('span', { class: 'verplicht' }, ' *') : null),
+      invoer,
+      veld.hint ? h('div', { class: 'hint' }, veld.hint) : null));
+  }
+  const foutBlok = h('div', { class: 'msg err', hidden: true });
+
+  modal({
+    titel: actie.label,
+    inhoud: h('div', {},
+      actie.hint ? h('div', { class: 'info-block info' }, actie.hint) : null,
+      raster, foutBlok),
+    knoppen: [
+      { label: 'Annuleren' },
+      {
+        label: actie.label, soort: 'btn-primary',
+        actie: async (sluit) => {
+          const body = {};
+          try {
+            for (const [naam, { invoer, veld }] of Object.entries(invoerVelden)) {
+              const tekst = (invoer.value || '').trim();
+              if (!tekst) {
+                if (veld.verplicht) throw new Error(`${veld.label} is verplicht.`);
+                continue;
+              }
+              body[naam] = JSON.parse(tekst);
+            }
+          } catch (err) {
+            foutBlok.hidden = false;
+            foutBlok.textContent = err.message;
+            return;
+          }
+          sluit();
+          await verstuur(body);
+        },
+      },
+    ],
+  });
+}
+
 // ── Formulier ──────────────────────────────────────────────────────────────
 
 function opentFormulier(comp, resource, rij, ouderId) {
@@ -794,6 +886,19 @@ function opentFormulier(comp, resource, rij, ouderId) {
         }
       },
     });
+  }
+
+  // Acties (registry.Actie, bv. "Publiceren") gelden alleen op een BESTAAND
+  // item en op componentniveau-schrijfrecht — los van of déze resource zelf
+  // 'wijzig' aanbiedt (Catalogus is nooit te wijzigen, maar dat zegt niets
+  // over een actie op een andere resource zoals Zaaktype).
+  if (!nieuw && comp.niveau === 'schrijven') {
+    for (const actie of resource.acties) {
+      knoppen.push({
+        label: actie.label,
+        actie: () => voerActieUit(comp, resource, rij, actie),
+      });
+    }
   }
 
   modal({
