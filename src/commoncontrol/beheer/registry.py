@@ -1072,6 +1072,13 @@ OBJECTTYPEN = Component(
     volgorde=30,
     beschrijving="Beheert de definities (JSON-schema's) van objecttypen.",
     probe="/api/v2/objecttypes",
+    token_hint=(
+        "Beheer de tokens in KubeManager onder CommonGround → Beheer → Objecttypen → "
+        "API-tokens. Dit component koppelt een token niet aan een gebruiker; de naam "
+        "(identifier) is de sleutelnaam, en contactpersoon en e-mailadres zijn verplicht. "
+        "Gebruik een eigen token en laat commonground-token met rust: daarmee melden "
+        "andere componenten zich hier."
+    ),
     apis=(ApiGroep("v2", "Objecttypen API", "/api/v2"),),
     resources=(
         Resource(
@@ -1128,6 +1135,13 @@ OBJECTEN = Component(
     volgorde=40,
     beschrijving="Bewaart de objecten zelf, gevalideerd tegen een objecttype-versie.",
     probe="/api/v2/objects",
+    token_hint=(
+        "Beheer de tokens in KubeManager onder CommonGround → Beheer → Objecten → "
+        "API-tokens. Dit component koppelt een token niet aan een gebruiker; de naam "
+        "(identifier) is de sleutelnaam, en contactpersoon en e-mailadres zijn verplicht. "
+        "De permissies per objecttype zet je daarna in de eigen beheeromgeving — zie de "
+        "opmerking hieronder."
+    ),
     let_op=(
         "Een token in de Objecten API heeft per objecttype een expliciete permissie. "
         "Zie je een leeg overzicht terwijl er wél objecten zijn, controleer dan de "
@@ -1185,6 +1199,13 @@ OPENKLANT = Component(
     volgorde=50,
     beschrijving="Klantinteracties en contactgegevens: partijen, adressen en klantcontacten.",
     probe="/klantinteracties/api/v1/partijen",
+    token_hint=(
+        "Beheer de tokens in KubeManager onder CommonGround → Beheer → Open Klant → "
+        "API-tokens. Dit component koppelt een token niet aan een gebruiker; de naam "
+        "(identifier) is de sleutelnaam, en contactpersoon en e-mailadres zijn verplicht. "
+        "Gebruik een eigen token en laat commonground-token met rust: daarmee melden "
+        "andere componenten zich hier."
+    ),
     apis=(
         ApiGroep("klantinteracties", "Klantinteracties API", "/klantinteracties/api/v1"),
         ApiGroep("contactgegevens", "Contactgegevens API", "/contactgegevens/api/v1"),
@@ -1323,7 +1344,7 @@ OPENPRODUCT = Component(
     beschrijving="Producttypen (het aanbod) en producten (de afgenomen exemplaren).",
     probe="/producttypen/api/v1/producttypen",
     token_hint=(
-        "KubeManager legt voor dit component geen token vast. Maak er een aan in de eigen beheeromgeving onder Auth Token → Tokens (/admin/authtoken/), gekoppeld aan een eigen serviceaccount — een token erft de rechten van die gebruiker."
+        "Maak een token aan in KubeManager onder CommonGround → Beheer → dit component → API-tokens. Kies daar een bestaande gebruiker of laat een serviceaccount aanmaken; een token erft de rechten van die gebruiker. Het kan ook met de hand in de eigen beheeromgeving onder Auth Token → Tokens (/admin/authtoken/)."
     ),
     apis=(
         ApiGroep("producttypen", "Producttypen API", "/producttypen/api/v1"),
@@ -1419,7 +1440,7 @@ OPENFORMS = Component(
     beschrijving="Formulierdefinities, hergebruikbare stappen en de ingezonden formulieren.",
     probe="/api/v2/forms",
     token_hint=(
-        "KubeManager legt voor dit component geen token vast. Maak er een aan in de eigen beheeromgeving onder Auth Token → Tokens (/admin/authtoken/), gekoppeld aan een eigen serviceaccount — een token erft de rechten van die gebruiker."
+        "Maak een token aan in KubeManager onder CommonGround → Beheer → dit component → API-tokens. Kies daar een bestaande gebruiker of laat een serviceaccount aanmaken; een token erft de rechten van die gebruiker. Het kan ook met de hand in de eigen beheeromgeving onder Auth Token → Tokens (/admin/authtoken/)."
     ),
     # ⚠ Voor wie deze lijst uitbreidt: /api/v2/services en /api/v2/submissions
     # bestaan wel, maar zijn met een API-token principieel onbereikbaar. Beide
@@ -1497,14 +1518,32 @@ OPENFORMS = Component(
             api="v2", pad="/categories", titel_veld="name",
             velden=(UUID, URL, Veld("name", "Naam", verplicht=True, in_lijst=True)),
         ),
+        # ⚠ Geverifieerd in de broncode (ThemeViewSet/ProductViewSet):
+        # permission_classes = (IsAdminUser,). Dat vereist dat de Django-
+        # gebruiker achter het token is_staff=True heeft — een gewoon
+        # API-token met alleen tokenAuth is niet genoeg, ook al lukt
+        # authenticeren prima. Geeft anders de weinig zeggende "Je hebt geen
+        # toestemming om deze actie uit te voeren" (403). Categorieën
+        # gebruikt een soepelere permissie en werkt daarom wél met een
+        # gewoon token.
         Resource(
             key="themes", label="Thema", label_mv="Thema's",
             api="v2", pad="/themes", titel_veld="name",
+            hint=(
+                "Vereist een token van een Open Formulieren-gebruiker met stafftoegang "
+                "(is_staff) — een gewoon API-token is hier onvoldoende, ook al werkt "
+                "inloggen verder prima."
+            ),
             velden=(UUID, URL, Veld("name", "Naam", verplicht=True, in_lijst=True)),
         ),
         Resource(
             key="products", label="Product", label_mv="Producten",
             api="v2", pad="/products", titel_veld="name",
+            hint=(
+                "Vereist een token van een Open Formulieren-gebruiker met stafftoegang "
+                "(is_staff) — een gewoon API-token is hier onvoldoende, ook al werkt "
+                "inloggen verder prima."
+            ),
             velden=(
                 UUID, URL,
                 Veld("name", "Naam", verplicht=True, in_lijst=True),
@@ -1529,7 +1568,7 @@ OPENINWONER = Component(
     beschrijving="Inwonersportaal: de producten- en dienstencatalogus (PDC).",
     probe="/api/products",
     token_hint=(
-        "KubeManager legt voor dit component geen token vast. Maak er een aan in de eigen beheeromgeving onder Auth Token → Tokens (/admin/authtoken/), gekoppeld aan een eigen serviceaccount — een token erft de rechten van die gebruiker."
+        "Maak een token aan in KubeManager onder CommonGround → Beheer → dit component → API-tokens. Kies daar een bestaande gebruiker of laat een serviceaccount aanmaken; een token erft de rechten van die gebruiker. Het kan ook met de hand in de eigen beheeromgeving onder Auth Token → Tokens (/admin/authtoken/)."
     ),
     let_op=(
         "Open Inwoner biedt bewust maar een klein deel van zijn beheer via een API aan: "

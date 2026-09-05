@@ -20,8 +20,7 @@ services:
       db:
         condition: service_healthy
     environment:
-      # Geen standaardwaarden: die zouden publiek bekend zijn zodra deze repo
-      # openbaar is. Zet ze in een .env-bestand naast dit bestand.
+      # Zet ze in een .env-bestand naast dit bestand.
       SECRET_KEY: ${SECRET_KEY:?zet SECRET_KEY in .env}
       ALLOWED_HOSTS: localhost,127.0.0.1
       DB_HOST: db

@@ -1,7 +1,7 @@
 # CommonControl
 
-> ⚠ **Eerste beta-versie.** CommonControl is nog niet tegen een productie omgeving 
-> van elk component getest. Gebruik het vooralsnog met dat in het
+> ⚠ **Eerste beta-versie.** CommonControl is alleen tegen een demo omgeving 
+> met elk component getest. Gebruik het vooralsnog met dat in het
 > achterhoofd, en meld gerust een issue als iets niet klopt.
 
 Webgebaseerde beheerinterface voor de CommonGround-componenten. Gebouwd door
@@ -43,8 +43,15 @@ Twee componenten bieden zelf minder aan dan de rest. Dat is geen keuze van Commo
   beoordelen en vernietigen hoort in Open Archiefbeheer zelf te gebeuren, waar
   het vier-ogenprincipe is ingebouwd.
 
+Bij **Open Formulieren** ontbreken twee endpoints die wel bestaan: services en
+inzendingen. Beide overschrijven de authenticatie van het project zelf — inzendingen
+horen bij de invulsessie van de burger, services zijn alleen met een sessie-login
+bereikbaar. Geen token en geen rechtenniveau helpt daar, dus ze staan er niet in
+plaats van te blijven falen. De thema's en producten zijn er wel, maar vragen een
+token van een gebruiker met stafftoegang.
+
 Verder is de formulierbouwer van Open Formulieren (velden slepen) bewust niet
-nagebouwd; CommonControl beheert daar de formulieren, categorieën en koppelingen.
+meegenomen; CommonControl beheert daar de formulieren, categorieën en koppelingen.
 
 ---
 
@@ -63,7 +70,7 @@ commoncontrol/
     │   ├── crypto.py           versleuteling van opgeslagen geheimen (Fernet)
     │   ├── api.py              JSON-hulpjes en de rechtendecorator
     │   ├── beheer/
-    │   │   ├── registry.py     ← DE BRON VAN WAARHEID: 9 componenten, 56 resources
+    │   │   ├── registry.py     ← DE BRON VAN WAARHEID: 9 componenten, 57 resources
     │   │   └── views.py        één generieke set views voor álle resources
     │   ├── verbindingen/
     │   │   ├── models.py       omgevingen en verbindingen (geheimen versleuteld)
@@ -72,7 +79,7 @@ commoncontrol/
     │   └── auditlog/           wie deed wat, wanneer, met welk resultaat
     ├── templates/              inlog- en MFA-schermen
     ├── static/commoncontrol/       huisstijl (css) en de interface (app.js)
-    └── tests/                  70 tests
+    └── tests/                  164 tests
 ```
 
 ### De registry is het hart
@@ -83,7 +90,7 @@ als de interface leiden daar álles uit af, er is geen enkele component-specifie
 view of pagina.
 
 Eén registry per component, om dezelfde reden als bij vergelijkbare
-CommonGround-tooling: negen componenten × 56 resources handmatig uitschrijven
+CommonGround-tooling: negen componenten × 57 resources handmatig uitschrijven
 zou gegarandeerd gaan scheeflopen zodra er iets wijzigt.
 
 **Een resource toevoegen = één descriptor erbij.** Er verschijnt dan vanzelf een
@@ -152,24 +159,25 @@ Twee schermen, in deze volgorde. Beide alleen voor beheerders.
 Die scheiding is opzet: het adres kent iedereen die de omgeving inricht, de
 credentials niet.
 
-> Voor Open Formulieren, Open Product en Open Inwoner maak je zelf een API-token
-> aan in de beheeromgeving van dat component (onder *Auth Token → Tokens*). De
-> interface wijst je daar naartoe.
+> **Waar komt een API-token vandaan?** Voor de zes componenten met tokenauthenticatie
+> maak je die aan in KubeManager, onder *CommonGround → Beheer → het component →
+> API-tokens*. Met de hand kan ook, in de beheeromgeving van het component zelf onder
+> *Auth Token → Tokens*. De interface wijst per component de weg.
+>
+> De componenten hanteren twee soorten tokens, en dat verschil is zichtbaar bij het
+> aanmaken. Bij Open Formulieren, Open Product en Open Inwoner hangt een token aan een
+> **gebruiker** en erft het diens rechten — vandaar dat sommige onderdelen een account
+> met stafftoegang vragen. Bij Objecttypen, Objecten en Open Klant staat een token op
+> zichzelf, met een naam en een verplichte contactpersoon.
+>
+> Laat `commonground-token` daarbij met rust: dat is door de installatiewizard
+> aangemaakt en andere componenten melden zich daarmee. Maak voor CommonControl een
+> eigen token aan.
 
 **De verbindingstest gokt niet.** De componenten gebruiken in de praktijk
 `Authorization: Token <sleutel>`, terwijl de gegenereerde OpenAPI van Open Klant
 een bearer-schema beschrijft. In plaats van te kiezen welke bron gelijk heeft,
 probeert de test beide en slaat op wat werkelijk werkt.
-
-### Aanbevolen: een eigen applicatie in OpenZaak
-
-Je kunt bestaande credentials hergebruiken die al voor deze componenten zijn
-aangemaakt (bijvoorbeeld via een eerder ingelezen configuratiebestand). Dat werkt
-meteen, maar voor de herleidbaarheid is het beter om in *OpenZaak → Applicaties*
-een eigen applicatie voor CommonControl aan te maken en die client-id/secret hier
-in te vullen. In de auditlog van OpenZaak zelf staat dan bovendien welke
-beheerder de handeling deed — CommonControl zet de ingelogde gebruiker in het
-`user_id` van het JWT.
 
 ---
 
@@ -177,12 +185,22 @@ beheerder de handeling deed — CommonControl zet de ingelogde gebruiker in het
 
 ### Lokaal
 
+Zet eerst een `.env` naast `docker-compose.yml`; zonder deze waarden start het
+niet, met opzet want er zijn geen standaardgeheimen die in een openbare repo bekend
+zouden zijn:
+
+```
+SECRET_KEY=een-lange-willekeurige-tekenreeks
+DB_PASSWORD=een-wachtwoord
+ADMIN_WACHTWOORD=een-eerste-wachtwoord
+```
+
 ```bash
 docker compose up --build
 ```
 
-Daarna `http://localhost:8000`, met de beheerder uit `docker-compose.yml`
-(standaard `beheerder` / `eerste-wachtwoord-wijzigen` — direct wijzigen).
+Daarna `http://localhost:8000`, met gebruikersnaam `beheerder` (of wat u in
+`ADMIN_GEBRUIKERSNAAM` zet) en het wachtwoord uit uw `.env`.
 
 ### Kubernetes
 
@@ -213,41 +231,13 @@ kubectl -n commoncontrol exec deploy/commoncontrol -- \
 
 ---
 
-## Tests
-
-```bash
-cd src
-python manage.py test tests --settings=commoncontrol.test_settings
-```
-
-70 tests, geen netwerk nodig. Ze dekken vooral wat duur is als het misgaat:
-
-* versleuteling heen en weer, en dat een andere sleutel geen crash geeft;
-* het ZGW-JWT — inclusief de `client_identifier` in de **header**, waar OpenZaak
-  anders een nietszeggende 403 op geeft;
-* rechten: sterkste van persoonlijk en groep, en geen toegang zonder recht;
-* de toegangspoort: zonder MFA geen API en geen interface, een
-  pogingenlimiet, uitloggen alleen via POST, en `?next=` alleen binnen de app;
-* padopbouw: een identificatie met `../` erin kan het pad niet veranderen;
-* de doorgeefluik-route weigert een URL buiten het component;
-* het inlezen van een bestaand wizard-configuratiebestand, inclusief de
-  gevallen zonder token;
-* de integriteit van de registry zelf.
-
-`manage.py check --deploy` laat bewust twee waarschuwingen staan:
-`SECURE_HSTS_INCLUDE_SUBDOMAINS` en `SECURE_HSTS_PRELOAD`. CommonControl draait op
-een subdomein van de gemeente en mag geen beleid opleggen aan het hele domein —
-dat is een beslissing van de domeineigenaar, niet van deze applicatie.
-
----
-
 ## Functioneel versus technisch beheer
 
 CommonControl **beheert de inhoud** van de componenten (zaaktypen, abonnementen,
 objecttypen, partijen) via hun publieke API's. Het installeren en technisch
 onderhouden van de componenten zelf (cluster, back-ups, certificaten) valt hier
 bewust buiten: dat is een aparte verantwoordelijkheid, en CommonControl heeft
-daar geen afhankelijkheid van.
+daar geen afhankelijkheid van. Gebruik hiervoor bijvoorbeelde KubeManager https://kubemanager.nl
 
 ---
 
