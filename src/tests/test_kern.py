@@ -400,6 +400,20 @@ class RegistryIntegriteitTest(TestCase):
             {"zaak_afsluiten", "zaak_bijwerken", "zaak_opschorten", "zaak_verlengen"},
         )
 
+    def test_formulierversies_zijn_geneste_alleen_lijst_en_aanmaken(self):
+        """
+        Live gemeten tegen forms.demomeer.nl: /forms/{uuid}/versions kent
+        alleen GET (lijst) en POST (aanmaken) — geen detail/wijzig/verwijder.
+        Terugzetten is een aparte Actie (restore), geen gewone bewerking.
+        """
+        of = registry.component("openforms")
+        versions = next((r for r in of.resources if r.key == "versions"), None)
+        self.assertIsNotNone(versions, "resource ontbreekt: openforms/versions")
+        self.assertEqual(versions.ouder, "forms")
+        self.assertEqual(set(versions.methoden), {"lijst", "maak"})
+        sleutels = {a.sleutel for a in versions.acties}
+        self.assertEqual(sleutels, {"restore"})
+
 
 class UitrolbaarheidTest(TestCase):
     """

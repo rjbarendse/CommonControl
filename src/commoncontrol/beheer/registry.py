@@ -1452,6 +1452,33 @@ OPENFORMS = Component(
                 Veld("steps", "Stappen", "json", alleen_lezen=True),
             ),
         ),
+        # Geen url-veld (geverifieerd tegen de live spec: FormVersion kent geen
+        # 'url'). Alleen lijst+aanmaken — een versie wijzigen/verwijderen is
+        # geen bewerking die de API aanbiedt, wél terugzetten (een Actie).
+        Resource(
+            key="versions", label="Formulierversie", label_mv="Formulierversies",
+            api="v2", pad="/forms/{ouder}/versions", ouder="forms",
+            methoden=("lijst", "maak"), titel_veld="description",
+            hint="Een momentopname van de volledige formulierconfiguratie (incl. stappen en logica).",
+            acties=(
+                Actie(
+                    sleutel="restore", label="↩️ Terugzetten",
+                    bevestiging=(
+                        "Dit vervangt de huidige configuratie van het formulier door deze "
+                        "versie. De huidige staat gaat verloren tenzij die ook als versie is "
+                        "opgeslagen. Doorgaan?"
+                    ),
+                ),
+            ),
+            velden=(
+                UUID,
+                Veld("created", "Aangemaakt", "datumtijd", alleen_lezen=True, in_lijst=True),
+                Veld("description", "Omschrijving", "tekstlang", in_lijst=True),
+                Veld("appRelease", "Applicatieversie", alleen_lezen=True),
+                Veld("appGitSha", "Commit-hash", alleen_lezen=True),
+                Veld("user", "Gebruiker (JSON)", "json", alleen_lezen=True),
+            ),
+        ),
         Resource(
             key="form-definitions", label="Formulierdefinitie", label_mv="Formulierdefinities",
             api="v2", pad="/form-definitions", titel_veld="name",

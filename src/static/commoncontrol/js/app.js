@@ -668,9 +668,10 @@ async function haalUrlKandidaten(comp, doelSleutel) {
  * velden: een klein formulier (elk veld hier is in de praktijk 'json' of
  * 'lijst' — samengestelde payloads, zie de registry-toelichting bij Actie).
  */
-function voerActieUit(comp, resource, rij, actie) {
+function voerActieUit(comp, resource, rij, actie, ouderId) {
   const id = haalId(rij, resource);
-  const basis = `/api/beheer/${staat.omgeving}/${comp.key}/${resource.key}/${encodeURIComponent(id)}/acties/${actie.sleutel}`;
+  const zoek = ouderId ? `?ouder=${encodeURIComponent(ouderId)}` : '';
+  const basis = `/api/beheer/${staat.omgeving}/${comp.key}/${resource.key}/${encodeURIComponent(id)}/acties/${actie.sleutel}${zoek}`;
 
   const verstuur = async (body) => {
     try {
@@ -896,7 +897,7 @@ function opentFormulier(comp, resource, rij, ouderId) {
     for (const actie of resource.acties) {
       knoppen.push({
         label: actie.label,
-        actie: () => voerActieUit(comp, resource, rij, actie),
+        actie: () => voerActieUit(comp, resource, rij, actie, ouderId),
       });
     }
   }
