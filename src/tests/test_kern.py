@@ -348,6 +348,30 @@ class RegistryIntegriteitTest(TestCase):
             self.assertIsNotNone(res, f"resource ontbreekt: openzaak/{sleutel}")
             self.assertEqual(set(res.methoden), {"maak"}, sleutel)
 
+    def test_notificatie_publiceren_is_de_kernactie_niet_een_uitbreiding(self):
+        """
+        Live gemeten tegen notificaties.demomeer.nl: /notificaties (een
+        notificatie publiceren) is de kernfunctie van de Notificaties API
+        zelf, geen vendor-uitbreiding — anders dan de vergelijkbare
+        aanmaak-acties bij OpenZaak. Geen eigen lijst/detail: publiceren is
+        eenmalig, er is niets terug op te vragen.
+        """
+        notif = registry.component("notificaties")
+        res = next((r for r in notif.resources if r.key == "notificaties"), None)
+        self.assertIsNotNone(res, "resource ontbreekt: notificaties/notificaties")
+        self.assertEqual(set(res.methoden), {"maak"})
+        namen = {v.naam for v in res.velden}
+        self.assertEqual(
+            namen,
+            {"kanaal", "hoofdObject", "resource", "resourceUrl", "actie",
+             "aanmaakdatum", "source", "kenmerken"},
+        )
+        verplichte = {v.naam for v in res.velden if v.verplicht}
+        self.assertEqual(
+            verplichte,
+            {"kanaal", "hoofdObject", "resource", "resourceUrl", "actie", "aanmaakdatum"},
+        )
+
     def test_publiceer_actie_zit_op_de_drie_conceptresources(self):
         """
         publish is een kale POST zonder body (geverifieerd: requestBody is

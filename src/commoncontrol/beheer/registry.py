@@ -1022,6 +1022,40 @@ NOTIFICATIES = Component(
                      hint='[{"naam": "zaken", "filters": {}}]'),
             ),
         ),
+        # ⚠ Geen VNG-standaard-uitbreiding maar de kernactie zelf: dit IS wat
+        # de Notificaties API doet. Geen eigen lijst/detail — publiceren is
+        # eenmalig, er is niets om terug op te vragen. Bewust zonder
+        # verwijst_naar op 'kanaal': dat veld verwacht de NAAM van het kanaal
+        # (KANAAL.naam), geen URL — kijk in de Kanalen-tab voor de juiste naam.
+        Resource(
+            key="notificaties", label="Notificatie publiceren", label_mv="Notificatie publiceren",
+            api="nrc", pad="/notificaties", methoden=("maak",),
+            hint=(
+                "Publiceert direct een notificatie op een kanaal — hetzelfde als wat een "
+                "aangesloten component doet bij een wijziging. Vooral nuttig om een "
+                "abonnee-koppeling te testen."
+            ),
+            velden=(
+                Veld("kanaal", "Kanaal (naam)", verplicht=True,
+                     hint="De NAAM van het kanaal (KANAAL.naam), geen URL — zie de Kanalen-tab."),
+                Veld("hoofdObject", "Hoofdobject (URL)", "url", verplicht=True),
+                Veld("resource", "Resourcenaam", verplicht=True,
+                     hint="Bijvoorbeeld 'zaak' — de publicerende API bepaalt de toegestane waarden."),
+                Veld("resourceUrl", "Resource-URL", "url", verplicht=True),
+                Veld("actie", "Actie", verplicht=True,
+                     hint="Bijvoorbeeld 'create'/'update'/'destroy' — de publicerende API bepaalt dit."),
+                Veld("aanmaakdatum", "Aanmaakdatum", "datumtijd", verplicht=True),
+                Veld("source", "Bron (systeem/organisatie)"),
+                Veld("kenmerken", "Kenmerken (JSON)", "json",
+                     hint='Sleutel/waarde, bijvoorbeeld {"bron": "openzaak"}.'),
+            ),
+        ),
+        # ⚠ Bewust NIET gebouwd: /cloudevents is door Open Notificaties zelf
+        # als EXPERIMENTEEL gemarkeerd én gebruikt een ander content-type
+        # (application/cloudevents+json i.p.v. application/json). CommonControl's
+        # HTTP-client stuurt altijd JSON; dit zou een eigen contenttype-pad in
+        # de client vereisen voor één experimentele endpoint. Zie
+        # OpenZaak-API-Overzicht.md voor vergelijkbare bewuste keuzes.
     ),
 )
 
