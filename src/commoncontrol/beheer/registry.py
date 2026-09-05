@@ -73,6 +73,36 @@ class Veld:
 
 
 @dataclass(frozen=True)
+class Actie:
+    """
+    Een POST-actie op een BESTAAND item die geen gewone 'wijzig' is — bv.
+    Zaaktype.publish (onomkeerbaar: een concept wordt definitief) of
+    Zaak.zaak_verlengen (stuurt een eigen, samengestelde payload in plaats
+    van een veldsgewijze PATCH). Verschijnt als knop naast Opslaan/Verwijderen
+    in het bewerkscherm van een bestaand item.
+
+    Leeg `velden` = kale POST zonder body (zoals publish). Gevulde `velden`
+    opent eerst een klein formulier — voor deze acties zijn dat vrijwel
+    altijd samengestelde/geneste objecten, dus de velden zijn doorgaans van
+    het type 'json' (dezelfde ontsnappingsklep als elders in de registry).
+    """
+    sleutel: str
+    label: str
+    velden: tuple[Veld, ...] = ()
+    bevestiging: str = ""         # niet-leeg = vraag dit bevestigend vóór verzenden
+    hint: str = ""
+
+    def als_dict(self) -> dict:
+        return {
+            "sleutel": self.sleutel,
+            "label": self.label,
+            "velden": [v.als_dict() for v in self.velden],
+            "bevestiging": self.bevestiging,
+            "hint": self.hint,
+        }
+
+
+@dataclass(frozen=True)
 class Resource:
     key: str
     label: str
@@ -91,6 +121,7 @@ class Resource:
     gepagineerd: bool = True
     hint: str = ""
     ouder: str = ""               # sleutel van de bovenliggende resource (genest)
+    acties: tuple[Actie, ...] = ()  # extra POST-acties op een bestaand item (zie Actie)
 
     def _titel(self) -> str:
         """Welk veld de rij in de lijst benoemt."""
@@ -114,6 +145,7 @@ class Resource:
             "gepagineerd": self.gepagineerd,
             "hint": self.hint,
             "ouder": self.ouder,
+            "acties": [a.als_dict() for a in self.acties],
         }
 
 
@@ -179,6 +211,18 @@ class Component:
 UUID = Veld("uuid", "UUID", "tekst", alleen_lezen=True)
 URL = Veld("url", "URL", "url", alleen_lezen=True)
 
+# Gedeeld door zaaktypen/besluittypen/informatieobjecttypen — alle drie kennen
+# exact dezelfde /{uuid}/publish-actie (kale POST, geen body, geverifieerd
+# tegen de live Catalogi API-spec: requestBody is None). Onomkeerbaar: een
+# concept wordt definitief en is daarna niet meer te wijzigen.
+PUBLICEER_ACTIE = Actie(
+    sleutel="publish", label="📢 Publiceren",
+    bevestiging=(
+        "Publiceren kan niet ongedaan worden gemaakt. Na publicatie is dit item "
+        "niet meer te wijzigen — maak dan een nieuwe versie aan. Doorgaan?"
+    ),
+)
+
 
 def _geldigheid() -> tuple[Veld, ...]:
     return (
@@ -241,6 +285,7 @@ OPENZAAK = Component(
         Resource(
             key="zaaktypen", label="Zaaktype", label_mv="Zaaktypen",
             api="catalogi", pad="/zaaktypen", titel_veld="omschrijving",
+            acties=(PUBLICEER_ACTIE,),
             hint=(
                 "Zaaktypen zijn versiegebonden: een gepubliceerd zaaktype is niet meer te "
                 "wijzigen. Maak dan een nieuwe versie aan."
@@ -358,6 +403,7 @@ OPENZAAK = Component(
             key="informatieobjecttypen", label="Informatieobjecttype",
             label_mv="Informatieobjecttypen",
             api="catalogi", pad="/informatieobjecttypen", titel_veld="omschrijving",
+            acties=(PUBLICEER_ACTIE,),
             filters=(Veld("catalogus", "Catalogus", "url"),
                      Veld("status", "Status", "keuze", keuzes=("alles", "concept", "definitief"))),
             velden=(
@@ -374,6 +420,7 @@ OPENZAAK = Component(
         Resource(
             key="besluittypen", label="Besluittype", label_mv="Besluittypen",
             api="catalogi", pad="/besluittypen", titel_veld="omschrijving",
+            acties=(PUBLICEER_ACTIE,),
             filters=(Veld("catalogus", "Catalogus", "url"),),
             velden=(
                 UUID, URL,
@@ -407,6 +454,27 @@ OPENZAAK = Component(
                 Veld("statustype", "Statustype", "url", verwijst_naar="statustypen"),
             ),
         ),
+        Resource(
+            key="zaakobjecttypen", label="Zaakobjecttype", label_mv="Zaakobjecttypen",
+            api="catalogi", pad="/zaakobjecttypen", titel_veld="relatieOmschrijving",
+            hint="Beschrijft welk soort object (adres, pand, persoon, …) bij een zaaktype hoort.",
+            filters=(Veld("zaaktype", "Zaaktype", "url"),),
+            velden=(
+                UUID, URL,
+                Veld("zaaktype", "Zaaktype", "url", verplicht=True, in_lijst=True,
+                     verwijst_naar="zaaktypen"),
+                Veld("anderObjecttype", "Ander objecttype", "bool", verplicht=True, in_lijst=True,
+                     hint="Geeft aan of het objecttype niet in de standaardlijst van de Zaken API voorkomt."),
+                Veld("objecttype", "Objecttype (URL)", "url", verplicht=True, in_lijst=True),
+                Veld("relatieOmschrijving", "Relatieomschrijving", verplicht=True, in_lijst=True),
+                Veld("statustype", "Statustype", "url", verwijst_naar="statustypen"),
+                # ⚠ Anders dan bij zaaktypen/informatieobjecttypen/besluittypen is
+                # beginGeldigheid hier NIET verplicht (gemeten tegen de live spec) —
+                # dus bewust niet de gedeelde _geldigheid()-helper hergebruikt.
+                Veld("beginGeldigheid", "Begin geldigheid", "datum"),
+                Veld("eindeGeldigheid", "Einde geldigheid", "datum"),
+            ),
+        ),
         # ── Zaken ───────────────────────────────────────────────────────────
         Resource(
             key="zaken", label="Zaak", label_mv="Zaken",
@@ -414,6 +482,54 @@ OPENZAAK = Component(
             hint=(
                 "Zaken zijn productiegegevens. Verwijderen is onomkeerbaar en verwijdert "
                 "ook de gekoppelde statussen, rollen en documentkoppelingen."
+            ),
+            # ⚠ Deze vier acties zijn OPEN ZAAK-SPECIFIEK (bevestigd: staan niet in
+            # de VNG-standaardspec van de Zaken API, alleen in de live installatie).
+            # Elk combineert meerdere samenhangende objecten in één verzoek — vandaar
+            # 'json'-velden i.p.v. losse formuliervelden, dezelfde ontsnappingsklep
+            # als elders in de registry voor samengestelde/geneste payloads.
+            acties=(
+                Actie(
+                    sleutel="zaak_afsluiten", label="🏁 Zaak afsluiten",
+                    bevestiging="Een zaak afsluiten zet resultaat + eindstatus in één keer. Doorgaan?",
+                    velden=(
+                        Veld("zaak", "Zaak (JSON)", "json", verplicht=True,
+                             hint='Minimaal {"uuid": "..."} van de zaak zelf.'),
+                        Veld("resultaat", "Resultaat (JSON)", "json", verplicht=True,
+                             hint='Bijvoorbeeld {"resultaattype": "<url>", "toelichting": ""}'),
+                        Veld("status", "Status (JSON)", "json", verplicht=True,
+                             hint='Bijvoorbeeld {"statustype": "<url>", "datumStatusGezet": "..."}'),
+                    ),
+                ),
+                Actie(
+                    sleutel="zaak_bijwerken", label="✏️ Zaak bijwerken (workflow)",
+                    velden=(
+                        Veld("zaak", "Zaak (JSON)", "json",
+                             hint="Alleen de velden die moeten wijzigen."),
+                        Veld("rollen", "Rollen (JSON-lijst)", "lijst"),
+                        Veld("status", "Status (JSON)", "json", verplicht=True,
+                             hint='Bijvoorbeeld {"statustype": "<url>", "datumStatusGezet": "..."}'),
+                    ),
+                ),
+                Actie(
+                    sleutel="zaak_opschorten", label="⏸️ Zaak opschorten",
+                    bevestiging="Zaak opschorten zet een nieuwe status. Doorgaan?",
+                    velden=(
+                        Veld("zaak", "Zaak (JSON)", "json", verplicht=True,
+                             hint='Bijvoorbeeld {"opschorting": {"indicatie": true, "reden": "..."}}'),
+                        Veld("status", "Status (JSON)", "json", verplicht=True,
+                             hint='Bijvoorbeeld {"statustype": "<url>", "datumStatusGezet": "..."}'),
+                    ),
+                ),
+                Actie(
+                    sleutel="zaak_verlengen", label="⏳ Zaak verlengen",
+                    velden=(
+                        Veld("zaak", "Zaak (JSON)", "json", verplicht=True,
+                             hint='Bijvoorbeeld {"verlenging": {"reden": "...", "duur": "P30D"}}'),
+                        Veld("status", "Status (JSON)", "json", verplicht=True,
+                             hint='Bijvoorbeeld {"statustype": "<url>", "datumStatusGezet": "..."}'),
+                    ),
+                ),
             ),
             filters=(
                 Veld("identificatie", "Identificatie"),
@@ -470,6 +586,24 @@ OPENZAAK = Component(
             ),
             methoden=("lijst", "detail", "maak"),
         ),
+        # ⚠ Open Zaak-specifiek (geen VNG-standaard, bevestigd). Geen PUT/PATCH/
+        # DELETE op de live spec, alleen GET+POST.
+        Resource(
+            key="substatussen", label="Substatus", label_mv="Substatussen",
+            api="zaken", pad="/substatussen", titel_veld="omschrijving",
+            hint="Open Zaak-specifiek: verfijning van een hoofdstatus, bv. om voortgang binnen een status te tonen.",
+            methoden=("lijst", "detail", "maak"),
+            filters=(Veld("zaak", "Zaak", "url"),),
+            velden=(
+                UUID, URL,
+                Veld("zaak", "Zaak", "url", verplicht=True, in_lijst=True, verwijst_naar="zaken"),
+                Veld("status", "Hoofdstatus", "url", verwijst_naar="statussen"),
+                Veld("omschrijving", "Omschrijving", "tekstlang", verplicht=True, in_lijst=True),
+                Veld("tijdstip", "Tijdstip", "datumtijd", in_lijst=True),
+                Veld("doelgroep", "Doelgroep", "keuze", keuzes=("betrokkenen", "intern"),
+                     hint="Leeg = voor iedereen zichtbaar."),
+            ),
+        ),
         Resource(
             key="rollen", label="Rol", label_mv="Rollen",
             api="zaken", pad="/rollen", titel_veld="roltoelichting",
@@ -514,6 +648,131 @@ OPENZAAK = Component(
                      in_lijst=True, verwijst_naar="enkelvoudiginformatieobjecten"),
                 Veld("titel", "Titel", in_lijst=True),
                 Veld("beschrijving", "Beschrijving", "tekstlang"),
+            ),
+        ),
+        # Geverifieerd tegen de live Zaken API: /klantcontacten/{uuid} kent
+        # alléén GET (geen PUT/PATCH/DELETE).
+        Resource(
+            key="klantcontacten", label="Klantcontact", label_mv="Klantcontacten",
+            api="zaken", pad="/klantcontacten", titel_veld="onderwerp",
+            methoden=("lijst", "detail", "maak"),
+            hint="Legacy-koppeling; nieuwe klantcontacten horen doorgaans in Open Klant thuis.",
+            filters=(Veld("zaak", "Zaak", "url"),),
+            velden=(
+                UUID, URL,
+                Veld("zaak", "Zaak", "url", verplicht=True, in_lijst=True, verwijst_naar="zaken"),
+                Veld("identificatie", "Identificatie", in_lijst=True),
+                Veld("datumtijd", "Datum/tijd", "datumtijd", verplicht=True, in_lijst=True),
+                Veld("kanaal", "Kanaal"),
+                Veld("onderwerp", "Onderwerp", in_lijst=True),
+                Veld("toelichting", "Toelichting", "tekstlang"),
+            ),
+        ),
+        # Geverifieerd: /zaakcontactmomenten/{uuid} kent GET+DELETE, geen wijzig.
+        Resource(
+            key="zaakcontactmomenten", label="Zaakcontactmoment", label_mv="Zaakcontactmomenten",
+            api="zaken", pad="/zaakcontactmomenten",
+            methoden=("lijst", "detail", "maak", "verwijder"),
+            hint="Koppelt een zaak aan een contactmoment uit een externe Klantcontacten-API.",
+            filters=(Veld("zaak", "Zaak", "url"),),
+            velden=(
+                UUID, URL,
+                Veld("zaak", "Zaak", "url", verplicht=True, in_lijst=True, verwijst_naar="zaken"),
+                Veld("contactmoment", "Contactmoment", "url", verplicht=True, in_lijst=True),
+            ),
+        ),
+        Resource(
+            key="zaakobjecten", label="Zaakobject", label_mv="Zaakobjecten",
+            api="zaken", pad="/zaakobjecten", titel_veld="relatieomschrijving",
+            hint=(
+                "Koppelt een willekeurig extern object (adres, pand, persoon, …) aan een "
+                "zaak. Bij objectType 'overige' met een eigen schemadefinitie "
+                "(objectTypeOverigeDefinitie) kan hier alleen via 'Alle velden als JSON' "
+                "gewerkt worden — de 29 objectspecifieke schemavarianten zijn niet één "
+                "voor één uitgewerkt."
+            ),
+            filters=(Veld("zaak", "Zaak", "url"), Veld("objectType", "Objecttype")),
+            velden=(
+                UUID, URL,
+                Veld("zaak", "Zaak", "url", verplicht=True, in_lijst=True, verwijst_naar="zaken"),
+                Veld("object", "Object (URL)", "url", in_lijst=True,
+                     hint="URL naar de externe resource die het object beschrijft."),
+                Veld("zaakobjecttype", "Zaakobjecttype", "url", verwijst_naar="zaakobjecttypen"),
+                Veld("objectType", "Objecttype", "keuze", verplicht=True, in_lijst=True, keuzes=(
+                    "adres", "besluit", "buurt", "enkelvoudig_document", "gemeente",
+                    "gemeentelijke_openbare_ruimte", "huishouden", "inrichtingselement",
+                    "kadastrale_onroerende_zaak", "kunstwerkdeel", "maatschappelijke_activiteit",
+                    "medewerker", "natuurlijk_persoon", "niet_natuurlijk_persoon",
+                    "openbare_ruimte", "organisatorische_eenheid", "pand", "spoorbaandeel",
+                    "status", "terreindeel", "terrein_gebouwd_object", "vestiging", "waterdeel",
+                    "wegdeel", "wijk", "woonplaats", "woz_deelobject", "woz_object",
+                    "woz_waarde", "zakelijk_recht", "overige",
+                )),
+                Veld("objectTypeOverige", "Objecttype (overige)",
+                     hint="Alleen bij objectType 'overige'."),
+                Veld("relatieomschrijving", "Relatieomschrijving", in_lijst=True),
+            ),
+        ),
+        # Geverifieerd: /zaakverzoeken/{uuid} kent GET+DELETE, geen wijzig.
+        Resource(
+            key="zaakverzoeken", label="Zaak-verzoek", label_mv="Zaak-verzoeken",
+            api="zaken", pad="/zaakverzoeken",
+            methoden=("lijst", "detail", "maak", "verwijder"),
+            hint="Koppelt een zaak aan een verzoek uit een externe Verzoeken-API.",
+            filters=(Veld("zaak", "Zaak", "url"),),
+            velden=(
+                UUID, URL,
+                Veld("zaak", "Zaak", "url", verplicht=True, in_lijst=True, verwijst_naar="zaken"),
+                Veld("verzoek", "Verzoek", "url", verplicht=True, in_lijst=True),
+            ),
+        ),
+        # ⚠ Open Zaak-specifiek (geen VNG-standaard, bevestigd: komt niet voor
+        # in de referentiespec) — maar wél een gewone CRUD-resource met een
+        # eigen lijst/detail, vandaar de standaardmethoden i.p.v. 'maak' alleen.
+        Resource(
+            key="zaaknotities", label="Zaaknotitie", label_mv="Zaaknotities",
+            api="zaken", pad="/zaaknotities", titel_veld="onderwerp",
+            hint="Open Zaak-specifiek: interne of externe notitie bij een zaak.",
+            filters=(Veld("gerelateerdAan", "Zaak", "url"),),
+            velden=(
+                UUID, URL,
+                Veld("gerelateerdAan", "Zaak", "url", verplicht=True, in_lijst=True,
+                     verwijst_naar="zaken"),
+                Veld("onderwerp", "Onderwerp", verplicht=True, in_lijst=True),
+                Veld("tekst", "Tekst", "tekstlang", verplicht=True),
+                Veld("aangemaaktDoor", "Aangemaakt door"),
+                Veld("notitieType", "Notitietype", "keuze", keuzes=("intern", "extern"),
+                     hint="Intern: alleen zichtbaar voor medewerkers."),
+                Veld("status", "Status", "keuze", keuzes=("concept", "definitief"), in_lijst=True),
+            ),
+        ),
+        # ⚠ Open Zaak-specifiek (geen VNG-standaard): eenmalige aanmaak-acties
+        # zonder eigen lijst/detail — vandaar methoden=('maak',) alleen.
+        Resource(
+            key="zaak_registreren", label="Zaak registreren (samengesteld)",
+            label_mv="Zaak registreren",
+            api="zaken", pad="/zaak_registreren", methoden=("maak",),
+            hint=(
+                "Open Zaak-specifieke actie: registreert in één verzoek een zaak + rollen "
+                "+ status (+ optioneel documenten/objecten) — een alternatief voor los een "
+                "Zaak, Rol en Status aanmaken."
+            ),
+            velden=(
+                Veld("zaak", "Zaak (JSON)", "json", verplicht=True),
+                Veld("rollen", "Rollen (JSON-lijst)", "lijst", verplicht=True),
+                Veld("zaakinformatieobjecten", "Zaakinformatieobjecten (JSON-lijst)", "lijst"),
+                Veld("zaakobjecten", "Zaakobjecten (JSON-lijst)", "lijst"),
+                Veld("status", "Status (JSON)", "json", verplicht=True),
+            ),
+        ),
+        Resource(
+            key="reserveer_zaaknummer", label="Zaaknummer reserveren",
+            label_mv="Zaaknummer reserveren",
+            api="zaken", pad="/reserveer_zaaknummer", methoden=("maak",),
+            hint="Open Zaak-specifieke actie: reserveert alvast een zaaknummer zonder een zaak aan te maken.",
+            velden=(
+                Veld("bronorganisatie", "Bronorganisatie (RSIN)", verplicht=True),
+                Veld("aantal", "Aantal", "getal", hint="Standaard 1 als leeg gelaten."),
             ),
         ),
         # ── Documenten ──────────────────────────────────────────────────────
@@ -564,6 +823,77 @@ OPENZAAK = Component(
                      verplicht=True),
             ),
         ),
+        # Geverifieerd: /objectinformatieobjecten/{uuid} kent GET+DELETE, geen wijzig.
+        Resource(
+            key="objectinformatieobjecten", label="Object-informatieobject relatie",
+            label_mv="Object-informatieobject relaties",
+            api="documenten", pad="/objectinformatieobjecten",
+            methoden=("lijst", "detail", "maak", "verwijder"),
+            hint="Koppelt een document aan een besluit, zaak of verzoek (buiten de Zaken-koppeling om).",
+            filters=(Veld("informatieobject", "Informatieobject", "url"),
+                     Veld("object", "Object", "url")),
+            velden=(
+                UUID, URL,
+                Veld("informatieobject", "Informatieobject", "url", verplicht=True,
+                     in_lijst=True, verwijst_naar="enkelvoudiginformatieobjecten"),
+                Veld("object", "Object (URL)", "url", verplicht=True, in_lijst=True),
+                Veld("objectType", "Objecttype", "keuze", verplicht=True, in_lijst=True,
+                     keuzes=("besluit", "zaak", "verzoek")),
+            ),
+        ),
+        Resource(
+            key="verzendingen", label="Verzending", label_mv="Verzendingen",
+            api="documenten", pad="/verzendingen", titel_veld="informatieobject",
+            hint="Registreert de verzending van een document naar een betrokkene (bv. per post of e-mail).",
+            filters=(Veld("informatieobject", "Informatieobject", "url"),
+                     Veld("betrokkene", "Betrokkene", "url")),
+            velden=(
+                UUID, URL,
+                Veld("betrokkene", "Betrokkene", "url", verplicht=True, in_lijst=True),
+                Veld("informatieobject", "Informatieobject", "url", verplicht=True,
+                     in_lijst=True, verwijst_naar="enkelvoudiginformatieobjecten"),
+                Veld("aardRelatie", "Aard relatie", "keuze", verplicht=True, in_lijst=True,
+                     keuzes=("afzender", "geadresseerde")),
+                Veld("toelichting", "Toelichting", "tekstlang"),
+                Veld("ontvangstdatum", "Ontvangstdatum", "datum"),
+                Veld("verzenddatum", "Verzenddatum", "datum", in_lijst=True),
+                Veld("contactPersoon", "Contactpersoon", "url", verplicht=True),
+                Veld("contactpersoonnaam", "Contactpersoonnaam"),
+                Veld("faxnummer", "Faxnummer"),
+                Veld("emailadres", "E-mailadres", "email"),
+                Veld("mijnOverheid", "MijnOverheid", "bool"),
+                Veld("telefoonnummer", "Telefoonnummer"),
+                Veld("binnenlandsCorrespondentieadres", "Binnenlands correspondentieadres (JSON)", "json"),
+                Veld("buitenlandsCorrespondentieadres", "Buitenlands correspondentieadres (JSON)", "json"),
+                Veld("correspondentiePostadres", "Correspondentiepostadres (JSON)", "json"),
+            ),
+        ),
+        # ⚠ Open Zaak-specifiek (geen VNG-standaard): eenmalige aanmaak-acties
+        # zonder eigen lijst/detail.
+        Resource(
+            key="document_registreren", label="Document registreren (samengesteld)",
+            label_mv="Document registreren",
+            api="documenten", pad="/document_registreren", methoden=("maak",),
+            hint=(
+                "Open Zaak-specifieke actie: registreert in één verzoek een document én de "
+                "koppeling naar een zaak — een alternatief voor los een Document aanmaken "
+                "en dan een Zaakdocument-koppeling."
+            ),
+            velden=(
+                Veld("enkelvoudiginformatieobject", "Document (JSON)", "json", verplicht=True),
+                Veld("zaakinformatieobject", "Zaakkoppeling (JSON)", "json", verplicht=True),
+            ),
+        ),
+        Resource(
+            key="documentnummer_reserveren", label="Documentnummer reserveren",
+            label_mv="Documentnummer reserveren",
+            api="documenten", pad="/documentnummer_reserveren", methoden=("maak",),
+            hint="Open Zaak-specifieke actie: reserveert alvast een documentnummer zonder een document aan te maken.",
+            velden=(
+                Veld("bronorganisatie", "Bronorganisatie (RSIN)", verplicht=True),
+                Veld("aantal", "Aantal", "getal", hint="Standaard 1 als leeg gelaten."),
+            ),
+        ),
         # ── Besluiten ───────────────────────────────────────────────────────
         Resource(
             key="besluiten", label="Besluit", label_mv="Besluiten",
@@ -586,6 +916,39 @@ OPENZAAK = Component(
                 Veld("publicatiedatum", "Publicatiedatum", "datum"),
                 Veld("verzenddatum", "Verzenddatum", "datum"),
                 Veld("uiterlijkeReactiedatum", "Uiterlijke reactiedatum", "datum"),
+            ),
+        ),
+        # Geverifieerd: /besluitinformatieobjecten/{uuid} kent GET+DELETE, geen wijzig.
+        Resource(
+            key="besluitinformatieobjecten", label="Besluit-informatieobject relatie",
+            label_mv="Besluit-informatieobject relaties",
+            api="besluiten", pad="/besluitinformatieobjecten",
+            methoden=("lijst", "detail", "maak", "verwijder"),
+            hint="Koppelt een document aan een besluit.",
+            filters=(Veld("besluit", "Besluit", "url"),
+                     Veld("informatieobject", "Informatieobject", "url")),
+            velden=(
+                UUID, URL,
+                Veld("besluit", "Besluit", "url", verplicht=True, in_lijst=True,
+                     verwijst_naar="besluiten"),
+                Veld("informatieobject", "Informatieobject", "url", verplicht=True, in_lijst=True),
+            ),
+        ),
+        # ⚠ Open Zaak-specifiek (geen VNG-standaard): eenmalige aanmaak-actie
+        # zonder eigen lijst/detail.
+        Resource(
+            key="besluit_verwerken", label="Besluit verwerken (samengesteld)",
+            label_mv="Besluit verwerken",
+            api="besluiten", pad="/besluit_verwerken", methoden=("maak",),
+            hint=(
+                "Open Zaak-specifieke actie: registreert in één verzoek een besluit + de "
+                "gekoppelde documenten — een alternatief voor los een Besluit aanmaken en "
+                "dan Besluit-informatieobject-koppelingen."
+            ),
+            velden=(
+                Veld("besluit", "Besluit (JSON)", "json", verplicht=True),
+                Veld("besluitinformatieobjecten", "Documentkoppelingen (JSON-lijst)", "lijst",
+                     verplicht=True),
             ),
         ),
         # ── Autorisaties ────────────────────────────────────────────────────

@@ -305,6 +305,77 @@ class RegistryIntegriteitTest(TestCase):
         kanaal = next(r for r in notif.resources if r.key == "kanaal")
         self.assertEqual(set(kanaal.methoden), {"lijst", "detail", "maak", "wijzig"})
 
+    def test_nieuwe_zgw_standaard_resources_hebben_de_gemeten_methoden(self):
+        """
+        Live gemeten tegen openzaak.demomeer.nl (OpenAPI-specs van alle vijf
+        API-groepen), niet aangenomen: acht resources die eerder ontbraken in
+        CommonControl, elk met precies de methoden die de API daadwerkelijk
+        aanbiedt — een deel biedt bewust geen PUT/PATCH ('wijzig') aan.
+        """
+        oz = registry.component("openzaak")
+        VERWACHT = {
+            "klantcontacten": {"lijst", "detail", "maak"},
+            "zaakcontactmomenten": {"lijst", "detail", "maak", "verwijder"},
+            "zaakobjecten": {"lijst", "detail", "maak", "wijzig", "verwijder"},
+            "zaakverzoeken": {"lijst", "detail", "maak", "verwijder"},
+            "objectinformatieobjecten": {"lijst", "detail", "maak", "verwijder"},
+            "verzendingen": {"lijst", "detail", "maak", "wijzig", "verwijder"},
+            "besluitinformatieobjecten": {"lijst", "detail", "maak", "verwijder"},
+            "zaakobjecttypen": {"lijst", "detail", "maak", "wijzig", "verwijder"},
+        }
+        for sleutel, verwacht in VERWACHT.items():
+            res = next(
+                (r for r in oz.resources if r.key == sleutel), None
+            )
+            self.assertIsNotNone(res, f"resource ontbreekt: {sleutel}")
+            self.assertEqual(set(res.methoden), verwacht, sleutel)
+
+    def test_open_zaak_specifieke_acties_hebben_geen_eigen_lijst(self):
+        """
+        De vendor-specifieke aanmaak-acties (bv. reserveer_zaaknummer) bestaan
+        niet in de VNG-standaardspec en hebben geen eigen GET-lijst/-detail —
+        ze zijn de actie zelf. methoden mag dus alleen 'maak' bevatten, anders
+        zou de interface een lijst proberen op te halen die niet bestaat.
+        """
+        # Allemaal onder het ÉÉN OpenZaak-component (dat vijf api-groepen
+        # bundelt: catalogi/zaken/documenten/besluiten/autorisaties) — geen
+        # aparte componenten per api-groep.
+        oz = registry.component("openzaak")
+        for sleutel in ("zaak_registreren", "reserveer_zaaknummer",
+                        "document_registreren", "documentnummer_reserveren",
+                        "besluit_verwerken"):
+            res = next((r for r in oz.resources if r.key == sleutel), None)
+            self.assertIsNotNone(res, f"resource ontbreekt: openzaak/{sleutel}")
+            self.assertEqual(set(res.methoden), {"maak"}, sleutel)
+
+    def test_publiceer_actie_zit_op_de_drie_conceptresources(self):
+        """
+        publish is een kale POST zonder body (geverifieerd: requestBody is
+        None in de live spec) op precies deze drie resources.
+        """
+        oz = registry.component("openzaak")
+        for sleutel in ("zaaktypen", "besluittypen", "informatieobjecttypen"):
+            res = next(r for r in oz.resources if r.key == sleutel)
+            sleutels = [a.sleutel for a in res.acties]
+            self.assertIn("publish", sleutels, sleutel)
+            publish = next(a for a in res.acties if a.sleutel == "publish")
+            self.assertEqual(publish.velden, ())
+            self.assertTrue(publish.bevestiging, "publiceren moet om bevestiging vragen")
+
+    def test_zaak_workflow_acties_bestaan(self):
+        """
+        Vier Open Zaak-specifieke acties op een BESTAANDE zaak (in tegen-
+        stelling tot zaak_registreren, dat een nieuwe zaak aanmaakt en dus
+        een aparte resource is, geen Actie op 'zaken').
+        """
+        oz = registry.component("openzaak")
+        zaken = next(r for r in oz.resources if r.key == "zaken")
+        sleutels = {a.sleutel for a in zaken.acties}
+        self.assertEqual(
+            sleutels,
+            {"zaak_afsluiten", "zaak_bijwerken", "zaak_opschorten", "zaak_verlengen"},
+        )
+
 
 class UitrolbaarheidTest(TestCase):
     """
